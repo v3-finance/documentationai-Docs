@@ -1,0 +1,152 @@
+---
+title: Changelog
+description: Track version history, recent updates, breaking changes, and new features in V3 Custody.
+---
+
+## Recent Releases
+
+Stay informed about the latest improvements to V3 Custody, your MPC custody solution built on infrastructure you own. Review changes by version to understand impacts on your integration.
+
+<Update label="2024-12-05" description="v1.3.0" tags={["feature", "improvement"]}>
+
+## New Features
+
+- Added support for 5 additional blockchain networks, bringing total to 25+ chains.
+- Introduced Policy Engine v2 with dynamic rule evaluation for multi-party approvals.
+
+## Improvements
+
+- Enhanced Ledger reporting with historical balance reconstruction API endpoint.
+- Optimized signing uptime to 99.999% through improved retry mechanisms.
+
+## Bug Fixes
+
+- Fixed reserved funds unlocking issue during approval workflows.
+- Resolved mobile app signature verification edge cases.
+
+</Update>
+
+<Update label="2024-11-15" description="v1.2.0" tags={["feature", "bugfix"]}>
+
+## New Features
+
+- Launched mobile app for on-the-go transaction approvals.
+- Added REST API endpoints for Reports generation and export.
+
+## Bug Fixes
+
+- Patched double-entry posting duplication in high-volume scenarios.
+- Fixed API retry-safe behavior for idempotent transaction submissions.
+
+</Update>
+
+<Update label="2024-10-10" description="v1.1.0" tags={["breaking", "feature"]}>
+
+## Breaking Changes
+
+- Updated authentication to require JWT tokens instead of API keys. Migrate using the new `/auth/token` endpoint.
+
+## New Features
+
+- Introduced Reserved Funds mechanism for pre-approval locking.
+- Added Web app dashboard for Ledger visualization and Policy Engine configuration.
+
+## Improvements
+
+- Every transaction now traceable to source postings.
+
+</Update>
+
+## Upgrading to the Latest Version
+
+Follow these steps to upgrade your V3 Custody integration safely. Always test in staging before production.
+
+<Callout kind="alert">
+  Review breaking changes in each release. Backup your Policy Engine configurations before upgrading.
+</Callout>
+
+<Steps>
+  <Step title="Update SDK" icon="download">
+
+    Install the latest version of the V3 Custody SDK.
+
+````typescript
+npm install @v3/custody-sdk@latest
+````
+
+````python
+pip install v3-custody-sdk==1.3.0
+````
+
+  </Step>
+  <Step title="Migrate Auth" icon="shield">
+
+    Switch to JWT authentication.
+
+<CodeGroup tabs="JavaScript,Python">
+````javascript
+const sdk = new V3CustodySDK({
+  apiUrl: 'https://api.example.com/v1',
+  token: 'YOUR_JWT_TOKEN'  // From /auth/token
+});
+````
+````python
+sdk = V3CustodySDK(
+    api_url='https://api.example.com/v1',
+    token='YOUR_JWT_TOKEN'
+)
+````
+</CodeGroup>
+
+  </Step>
+  <Step title="Test Transactions" icon="play">
+
+    Verify a test transaction.
+
+<ParamField path="transactionId" param-type="string" required="true">
+  Unique transaction identifier.
+</ParamField>
+
+  </Step>
+  <Step title="Deploy" icon="rocket">
+    Deploy to production and monitor signing uptime.
+  </Step>
+</Steps>
+
+## Upcoming Features
+
+Track planned enhancements in our development pipeline.
+
+<Board title="Q1 2025 Roadmap">
+  <BoardColumn title="Planned" color="0" icon="calendar">
+    <BoardCard title="Multi-sig Thresholds" description="Configurable approval thresholds" icon="lock" dueDate="2025-01-31" />
+    <BoardCard title="Webhook Integrations" description="Real-time event notifications" icon="zap" />
+  </BoardColumn>
+  <BoardColumn title="In Progress" color="1" icon="loader-circle">
+    <BoardCard title="Advanced Reports" description="Custom financial statements" icon="bar-chart-3" author="Engineering" />
+  </BoardColumn>
+  <BoardColumn title="Completed" color="2" icon="check-circle">
+    <BoardCard title="Mobile Approvals" description="iOS/Android transaction signing" createdAt="2024-11-15" />
+  </BoardColumn>
+</Board>
+
+## Resources
+
+<Columns cols={2}>
+  <Card title="Introduction" icon="book-open" href="/introduction">
+    Get started with V3 Custody fundamentals.
+  </Card>
+  <Card title="Quickstart" icon="zap" href="/quickstart" horizontal>
+    Set up your first MPC wallet.
+  </Card>
+  <Card title="API Reference" icon="code" href="/authentication">
+    Full API documentation and examples.
+  </Card>
+  <Card title="Support" icon="help-circle" href="/faq" horizontal>
+    FAQs and troubleshooting guides.
+  </Card>
+</Columns>
+
+<Callout kind="tip">
+  Subscribe to our RSS feed or join the Discord for instant update notifications.
+</Callout>
