@@ -123,28 +123,37 @@ components:
     PolicyCondition:
       description: "Дерево условия: {and:[...]} | {or:[...]} | {not:{...}} | лист
         {selector,value}. Пусто — политика применима всегда. Пришло
-        на смену rules/include/exclude/require"
+        на смену rules/include/exclude/require. Вложенные условия описаны
+        permissive-схемой для совместимости с Documentation.AI."
       anyOf:
         - type: object
           properties:
             and:
               type: array
+              description: Список вложенных условий, объединённых логическим AND
               items:
-                $ref: "#/components/schemas/PolicyCondition"
+                type: object
+                description: "Вложенное условие: and/or/not либо лист {selector,value}"
+                additionalProperties: true
           required:
             - and
         - type: object
           properties:
             or:
               type: array
+              description: Список вложенных условий, объединённых логическим OR
               items:
-                $ref: "#/components/schemas/PolicyCondition"
+                type: object
+                description: "Вложенное условие: and/or/not либо лист {selector,value}"
+                additionalProperties: true
           required:
             - or
         - type: object
           properties:
             not:
-              $ref: "#/components/schemas/PolicyCondition"
+              type: object
+              description: "Вложенное условие, результат которого инвертируется"
+              additionalProperties: true
           required:
             - not
         - type: object
