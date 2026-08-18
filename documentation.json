@@ -61,7 +61,7 @@
           {
             "group": "Endpoints",
             "icon": "terminal",
-            "openapi": "api-reference/openapi.yaml",
+            "openapi": "api-reference/api-1-fixed.yaml",
             "pages": []
           }
         ]
