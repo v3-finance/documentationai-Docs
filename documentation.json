@@ -70,6 +70,11 @@
                 "icon": "check-check"
               },
               {
+                "title": "Контрагенты и контекст",
+                "path": "concepts/counterparties",
+                "icon": "handshake"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
