@@ -23,17 +23,29 @@ description: Ментальная модель V3 Custody — как связа�
 
 Каждой теме посвящена отдельная страница:
 
-- **Vault и деривация** — почему схему адресов вы проектируете сами и как сегменты становятся путями деривации.
-- **Адреса, папки и доступ** — адрес как счёт журнала, изоляция видимости, шэринг и аудит доступа.
-- **Журнал (двойная запись)** — сбалансированные проводки, состояния available/reserved, исторические балансы и идемпотентность.
-- **Policy Engine** — deny-by-default, дерево условий, лимиты, whitelist и m-of-n подтверждения.
-- **Аппрувалы** — жизненный цикл заявки, снапшот подписантов и право вето.
-- **Контрагенты и контекст** — сопоставление адресов, категории и связи операций (refund/reversal).
-- **Gas Station** — единый газовый баланс, делегирование/relayer и приватность.
-
-<Callout kind="info">
-  Страницы раздела добавляются по одной. По мере готовности здесь появятся ссылки на каждую тему.
-</Callout>
+<Columns cols={2}>
+  <Card title="Vault и деривация" icon="folder-tree" href="/concepts/vaults" horizontal>
+    Почему схему адресов вы проектируете сами и как сегменты становятся путями деривации.
+  </Card>
+  <Card title="Адреса, папки и доступ" icon="wallet" href="/concepts/addresses" horizontal>
+    Адрес как счёт журнала, изоляция видимости, шэринг и аудит доступа.
+  </Card>
+  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+    Сбалансированные проводки, available/reserved, исторические балансы и идемпотентность.
+  </Card>
+  <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
+    Deny-by-default, дерево условий, лимиты, whitelist и m-of-n подтверждения.
+  </Card>
+  <Card title="Аппрувалы" icon="check-check" href="/concepts/approvals" horizontal>
+    Жизненный цикл заявки, снапшот подписантов и право вето.
+  </Card>
+  <Card title="Контрагенты и контекст" icon="handshake" href="/concepts/counterparties" horizontal>
+    Сопоставление адресов, категории и связи операций (refund/reversal).
+  </Card>
+  <Card title="Gas Station" icon="fuel" href="/concepts/gas-station" horizontal>
+    Единый газовый баланс, делегирование/relayer и приватность.
+  </Card>
+</Columns>
 
 ## Прежде чем углубляться
 
