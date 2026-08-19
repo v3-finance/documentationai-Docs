@@ -65,6 +65,11 @@
                 "icon": "shield-check"
               },
               {
+                "title": "Аппрувалы",
+                "path": "concepts/approvals",
+                "icon": "check-check"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
