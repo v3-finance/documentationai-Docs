@@ -1,44 +1,85 @@
 ---
-title: Introduction to V3 Custody
-description: Landing page introducing V3 Custody, its MPC-based secure custody for digital assets, key features, and ways to get started with API, web, or mobile.
+title: Введение в V3 Custody
+description: V3 Custody — MPC-платформа для хранения цифровых активов: доли ключа вместо приватных ключей, проверка политик до подписи и двойная запись под каждым балансом.
 ---
 
-<Image src="https://blob-cdn.documentation.ai/org-2ebb2ef5-dd91-493f-9938-283fbdb14c81/doc-d2a73d2e-4391-4446-a5c8-2d0b41b7c4c1/1774416420393-s9t4cno1w99-Image-8.png?q=85&fm=auto&auto=compress%2Cformat" alt="V3 Custody documentation" width="800" height="400" />
+<Image src="https://blob-cdn.documentation.ai/org-2ebb2ef5-dd91-493f-9938-283fbdb14c81/doc-d2a73d2e-4391-4446-a5c8-2d0b41b7c4c1/1774416420393-s9t4cno1w99-Image-8.png?q=85&fm=auto&auto=compress%2Cformat" alt="Документация V3 Custody" width="800" height="400" />
 
-## Welcome
+## Что такое V3 Custody
 
-Secure your digital assets with V3 Custody's MPC-based custody on infrastructure you own. Access full control via web app, mobile, or REST API.
+V3 Custody — инфраструктура для хранения и перемещения цифровых активов без передачи ключей кому бы то ни было, включая нас.
+
+Целого приватного ключа не существует. Любая исходящая транзакция сверяется с правилами вашей организации *до* того, как будет создана подпись. Любое движение средств попадает в неизменяемый журнал двойной записи. Управление идёт через REST API, веб-консоль или подтверждения с телефона.
+
+## Три принципа, на которых всё держится
+
+**Ключ — это доли, а не файл.** Подпись собирается по схеме threshold ECDSA: каждая нода хранит свою долю, и подпись создаётся совместно, так что ни одна нода — ни оператор, ни атакующий — не видит ключ целиком. Целого ключа нет ни в один момент жизненного цикла: ни при создании, ни при подписи, ни при восстановлении.
+
+**Правила — это конфигурация, а не код.** Policy Engine оценивает каждый запрос до того, как будет затронута доля ключа. Политики срабатывают по селекторам — сумма, актив, сеть, адрес получателя, сегмент кошелька, инициатор — и дают один из трёх исходов: **allow**, **queue** (в очередь на подтверждение) или **block**. Проверка идёт до подписи, поэтому заблокированную транзакцию не нужно откатывать или отзывать: её просто не существует в блокчейне.
+
+**Баланс вычисляется, а не хранится.** Каждая операция пишет сбалансированную пару проводок дебет/кредит, которые никогда не редактируются и не удаляются. Баланс — результат этих проводок, поэтому вопрос «почему здесь именно эта цифра» решается запросом, а не расследованием.
+
+## Vault: дерево адресов по вашей схеме
+
+Vault — схема деривации, которую вы проектируете сами, а не получаете готовой. Вы задаёте сегменты — сеть, назначение, актив, индекс клиента, стадия — и их порядок, а Vault превращает это в детерминированные пути деривации. Сегменты бывают статические, фиксированные для всего Vault, и динамические — новая ветка на клиента, на заявку, на депозит.
+
+Практический смысл: дерево адресов и есть ваша модель учёта. По пути видно, для чего заведён адрес, а Policy Engine пишет правила по тем же сегментам — вместо списков непрозрачных адресов.
+
+## Жизнь транзакции
+
+<Steps>
+  <Step title="Запрос" icon="plus">
+    Перевод создаётся через API, веб-консоль или мобильное приложение.
+  </Step>
+  <Step title="Проверка политик" icon="shield">
+    Policy Engine возвращает `allow`, `queue` или `block` — вместе с причиной и списком сработавших политик.
+  </Step>
+  <Step title="Подтверждение" icon="users">
+    Транзакции из очереди ждут тех, кого требует политика. Подтверждающий видит сумму, получателя и заявленную причину до того, как поставит подпись.
+  </Step>
+  <Step title="Подпись" icon="lock">
+    Только на этом шаге ноды MPC совместно создают подпись. Доли ключа остаются на своих местах.
+  </Step>
+  <Step title="Отправка в сеть" icon="send">
+    Подписанная транзакция уходит в блокчейн. Комиссию спонсирует Gas Station — нативный баланс на адресе-отправителе не нужен.
+  </Step>
+  <Step title="Проводка" icon="book-open">
+    Движение записывается в журнал парой сбалансированных проводок с ключом идемпотентности, поэтому повтор запроса не задваивает сумму.
+  </Step>
+</Steps>
+
+## Газ перестаёт быть вашей заботой
+
+Только что созданный адрес обычно не может отправить ни цента, пока на него не придут TRX, ETH или BNB. V3 Custody убирает этот шаг: вы пополняете один баланс Gas Station — нативной монетой или обычным USDT — и каждый созданный адрес работает с первой секунды.
+
+<Callout kind="info">
+  Gas Station обслуживает миллионы адресов, а не только ваши, поэтому спонсирование комиссии не оставляет ончейн-следа, связывающего ваши адреса между собой. Общего кошелька-донора выше по цепочке просто нет.
+</Callout>
+
+## Кому это нужно
+
+Командам, которые ведут много адресов и должны объяснять каждое движение: биржам и OTC-дескам, платёжным провайдерам, сервисам с отдельным адресом на пользователя и казначейским отделам, которые отчитываются перед аудитором.
+
+## С чего начать
 
 <Columns cols={2}>
-  <Card title="Ledger" icon="database" href="/ledger">
-    Track every asset movement with balanced double-entry postings, fully traceable.
+  <Card title="Быстрый старт" icon="zap" href="/quickstart" horizontal>
+    Поднять инстанс и сделать первый вызов API.
   </Card>
 
-  <Card title="Reports" icon="bar-chart-3" href="/reports">
-    Generate reproducible financial reports from on-chain operations and balances.
+  <Card title="Аутентификация" icon="key" href="/authentication" horizontal>
+    API-ключи, сессии и авторизация подтверждений.
   </Card>
 
-  <Card title="Policy Engine" icon="shield" href="/policy-engine">
-    Enforce rules, limits, and multi-party approvals before any transaction.
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Все эндпоинты, параметры и форматы ответов.
   </Card>
 
-  <Card title="MPC Security" icon="lock" href="/security">
-    Supports any asset across 20+ chains with 99.99% signing uptime on your infrastructure.
-  </Card>
-</Columns>
-
-## Explore
-
-<Columns cols={2}>
-  <Card title="Quickstart" icon="book-open" href="/quickstart" horizontal>
-    Set up V3 Custody in minutes and secure your first assets.
-  </Card>
-
-  <Card title="Authentication" icon="key" href="/authentication" horizontal>
-    Learn secure access via API keys, web, and mobile approvals.
+  <Card title="Ошибки" icon="alert-circle" href="/errors" horizontal>
+    Коды ошибок и что делать с каждой из них.
   </Card>
 </Columns>
 
 <Callout kind="tip">
-  This documentation was generated as a starter kit. Customize the content to match your product.
+  Не разработчик? В [Help Center](/help-center) собраны повседневные задачи — как получить доступ к кошельку, как завести кастодиальный аккаунт и что проверить, если транзакция не подписывается.
 </Callout>
