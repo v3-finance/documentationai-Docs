@@ -60,6 +60,11 @@
                 "icon": "scale"
               },
               {
+                "title": "Policy Engine",
+                "path": "concepts/policy-engine",
+                "icon": "shield-check"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
