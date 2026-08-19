@@ -1,181 +1,121 @@
 ---
-title: Authentication & Permissions
-description: Set up secure authentication for API access, including keys, MPC signers, and permission management.
+title: Аутентификация
+description: Как V3 Custody аутентифицирует запросы — Bearer‑токен для сервисов и мобильных приложений, httpOnly‑cookie для веба и регистрация по приглашению.
 ---
 
-## Overview
+Каждый запрос к API V3 Custody должен быть аутентифицирован. Платформа построена на better‑auth и принимает два способа: **Bearer‑токен** (для серверных интеграций и мобильных приложений) и **httpOnly‑cookie** (для веб‑консоли). Любой эндпоинт понимает оба.
 
-Secure all API interactions with V3 Custody using API keys, bearer tokens, or MPC threshold signers. You generate credentials through the dashboard at `https://dashboard.example.com`, then include them in requests. This ensures only authorized access to custody operations like signing transactions or querying balances.
-
-MPC threshold signers provide keyless security for high-value operations, distributing signing across multiple parties. Role-based access control (RBAC) lets you assign granular permissions, such as read-only ledger access or full signing approval.
-
-<Callout kind="info">
-  Store credentials securely. Never hardcode them in source code or commit to version control. Use environment variables or secret managers.
+<Callout kind="alert">
+  Токен — это доступ к средствам и операциям. Не коммитьте его в репозиторий и не встраивайте в код: храните в переменных окружения или менеджере секретов.
 </Callout>
 
-## Authentication Methods
+## Два способа аутентификации
 
-Choose the method that fits your use case. API keys work for simple integrations, while MPC signers suit production custody workflows.
+### Bearer — сервисы и мобильные приложения
 
-<Tabs>
-  <Tab title="API Keys" icon="key">
+Передайте токен сессии better‑auth в заголовке `Authorization`. Так аутентифицируются серверные интеграции и мобильные клиенты.
 
-    Generate an API key from the dashboard. Use it in the `Authorization` header as a bearer token.
+<ParamField header="Authorization" param-type="string" required="true">
+  Bearer‑токен: `Authorization: Bearer <токен>`.
+</ParamField>
 
-    <ParamField header="Authorization" param-type="string" required="true">
-      Bearer token format: `Bearer YOUR_API_KEY`.
-    </ParamField>
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/vaults", {
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+});
+```
+```python
+import os, requests
 
-    ```javascript
-    const response = await fetch('https://api.example.com/v1/balances', {
-      headers: {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json'
-      }
-    });
-    ```
+res = requests.get(
+    "[BASE_URL]/api/v1/vaults",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+)
+```
+</CodeGroup>
 
-  </Tab>
-  <Tab title="MPC Threshold Signers" icon="shield">
+### Cookie — веб‑консоль
 
-    Configure MPC signers for threshold cryptography. Requires at least 3-of-5 signers for production security.
+При входе в веб‑консоль better‑auth выставляет httpOnly‑cookie с сессией. Браузер отправляет её автоматически, вручную с ней работать не нужно, а из JavaScript она недоступна по замыслу. Для интеграций «сервер↔сервер» используйте Bearer‑токен, а не cookie.
 
-    Set up signers via the Policy Engine, then request signatures through the API.
+## Как получить токен
 
-    <ParamField header="X-Signer-IDs" param-type="array" required="true">
-      Comma-separated signer IDs, e.g., `signer1,signer2,signer3`.
-    </ParamField>
+<Callout kind="info">
+  [TODO: описать, как выпускается токен доступа для серверных интеграций — механизм пока уточняется. Заполнить, когда определим процесс выдачи. Блок находится по метке TODO.]
+</Callout>
 
-  </Tab>
-  <Tab title="Bearer Tokens" icon="ticket">
+Технически это токен сессии better‑auth. Как только процесс выдачи будет зафиксирован, здесь появится пошаговая инструкция.
 
-    Short-lived tokens from OAuth flows or key exchanges. Refresh automatically before expiry.
+## Регистрация только по приглашению
 
-    ```bash
-    curl -H "Authorization: Bearer YOUR_TOKEN" \
-         https://api.example.com/v1/transactions
-    ```
-
-  </Tab>
-</Tabs>
-
-## Generate and Configure Credentials
-
-Follow these steps to create and set up authentication.
+Самостоятельная регистрация закрыта: hook better‑auth блокирует sign‑up без действующего приглашения. Новый участник попадает в Vault так:
 
 <Steps>
-  <Step title="Create API Key" icon="key-round">
-
-    Log in to `https://dashboard.example.com/keys`. Click **New API Key**, select scopes (e.g., `balances:read`, `transactions:sign`), and copy the generated key.
-
+  <Step title="Администратор создаёт приглашение" icon="mail">
+    Указываются email и список групп, в которые участник попадёт при принятии. Эндпоинт — `POST /api/v1/invitations`.
   </Step>
-  <Step title="Configure MPC Signers" icon="users">
-
-    In the dashboard, navigate to **MPC Signers**. Add signers with public keys and set threshold (e.g., 2-of-3).
-
-    ```json
-    {
-      "signers": [
-        {"id": "signer1", "publicKey": "0xabc..."},
-        {"id": "signer2", "publicKey": "0xdef..."}
-      ],
-      "threshold": 2
-    }
-    ```
-
+  <Step title="Участник принимает приглашение" icon="user-check">
+    При регистрации по приглашению better‑auth автоматически создаёт членства в группах (`PolicyGroupMembership`) и помечает приглашение принятым.
   </Step>
-  <Step title="Test Authentication" icon="play">
-
-    Verify with a balances endpoint.
-
-    <Request show-lines="true">
-      ```bash
-      curl -H "Authorization: Bearer YOUR_API_KEY" \
-           https://api.example.com/v1/balances
-      ```
-    </Request>
-
-    <Response>
-      ```json
-      {
-        "balances": [
-          {"asset": "ETH", "amount": "1.5", "chain": "ethereum"}
-        ]
-      }
-      ```
-    </Response>
-
+  <Step title="Доступ определяется группами" icon="users">
+    Права участника вытекают из групп, в которых он состоит, — отдельных «скоупов» у токена нет.
   </Step>
 </Steps>
 
-## Role-Based Access Control
-
-Assign roles to users or API keys for fine-grained permissions.
-
-| Role | Permissions | Use Case |
-|------|-------------|----------|
-| Viewer | `balances:read`, `ledger:read` | Auditors |
-| Approver | `transactions:approve` | Signers |
-| Admin | All actions | Platform owners |
-
-<ParamField path="role" param-type="string" required="false">
-  Assign via dashboard: `viewer`, `approver`, `admin`.
-</ParamField>
-
-<Expandable title="Advanced RBAC Policies" default-open="false">
-
-  Create custom policies in the Policy Engine.
-
-  ```javascript
-  const policy = {
-    rules: [
-      { action: 'sign', minApprovals: 2, roles: ['approver'] }
-    ]
-  };
-  ```
-
-</Expandable>
-
-## Environment Setup
-
-Set environment variables for secure API calls.
-
-<CodeGroup tabs="Node.js,Bash,Python">
-  ```bash
-  export V3_API_KEY="your-api-key-here"
-  export V3_BASE_URL="https://api.example.com"
-  ```
-  ```javascript
-  const apiKey = process.env.V3_API_KEY;
-  const baseUrl = process.env.V3_BASE_URL || 'https://api.example.com';
-  ```
-  ```python
-  import os
-  api_key = os.getenv('V3_API_KEY')
-  base_url = os.getenv('V3_BASE_URL', 'https://api.example.com')
-  ```
-</CodeGroup>
-
-## Refresh and Rotate Credentials
-
-Rotate keys monthly or after incidents. MPC signers rotate shares without downtime.
-
-<Callout kind="tip" kind="warning">
-  Revoke old keys immediately after rotation. Monitor logs for unauthorized access attempts.
+<Callout kind="tip">
+  Приглашение ещё не принято? Его можно отозвать через `POST /api/v1/invitations/{id}/revoke`. Принятое приглашение не отзывается — вместо этого участника убирают из групп.
 </Callout>
 
-1. Generate new key/signer in dashboard.
-2. Update integrations.
-3. Revoke old credentials.
-4. Test endpoints.
+## Проверьте аутентификацию
 
-## Next Steps
+Самый простой способ проверить токен — запросить список Vault'ов.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -i "[BASE_URL]/api/v1/vaults" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/vaults", {
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+});
+console.log(res.status); // 200 — токен принят
+```
+```python
+res = requests.get(
+    "[BASE_URL]/api/v1/vaults",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+)
+print(res.status_code)  # 200 — токен принят
+```
+</CodeGroup>
+
+Если токен отсутствует или истёк, вернётся `401`:
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required. Please provide a valid API token",
+  "code": 401
+}
+```
+
+## Кто что видит
+
+Аутентификация отвечает на вопрос «кто вы», а модель доступа — «что вам можно». В V3 Custody доступ вытекает из членства в группах, а видимость по умолчанию ограничена: обычный участник видит свои адреса, операции и балансы, администратор — весь Vault. Права применяются ещё до расчётов, поэтому чужие данные не попадают даже в агрегаты.
+
+## Что дальше
 
 <Columns cols={2}>
-  <Card title="Quickstart" icon="book-open" href="/quickstart">
-    Run your first custody operation.
+  <Card title="Быстрый старт" icon="zap" href="/quickstart" horizontal>
+    Первые вызовы к API за несколько минут.
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference">
-    Full endpoint documentation.
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Все эндпоинты, параметры и форматы ответов.
   </Card>
 </Columns>

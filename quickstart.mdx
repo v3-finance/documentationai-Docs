@@ -1,188 +1,253 @@
 ---
-title: Quickstart
-description: Deploy V3 Custody and make your first API call in under 5 minutes to query balances or initiate a transaction.
+title: Быстрый старт
+description: Первые вызовы к API V3 Custody — найти Vault, проверить баланс и отправить перевод через Policy Engine.
 ---
 
-## Prerequisites
-
-Before deploying V3 Custody, ensure you have the following ready:
+За несколько минут вы сделаете первые вызовы к REST API V3 Custody: найдёте свой Vault, проверите баланс, создадите адрес и отправите перевод. Все операции идут через один HTTP‑эндпоинт и подчиняются тем же правилам, что и веб‑консоль.
 
 <Callout kind="info">
-  - Docker installed and running (version `>=20.10`)
-  - Node.js `>=18` for local development
-  - A supported wallet seed phrase for MPC key generation
-  - Basic familiarity with REST APIs and JSON
+  Примеры используют базовый URL `[BASE_URL]` — это адрес вашего self‑hosted инстанса. Замените `[BASE_URL]` на реальный адрес (его легко найти по квадратным скобкам).
 </Callout>
 
-Reserve at least 4GB RAM for the self-hosted instance. Access to 20+ chains requires configuring RPC endpoints during setup.
+## Что понадобится
 
-## Deploy V3 Custody
+- Адрес инстанса V3 Custody — в примерах `[BASE_URL]`.
+- Токен доступа для заголовка `Authorization`. Как его получить — на странице [Аутентификация](/authentication).
+- Любой HTTP‑клиент: `curl`, JavaScript или Python.
 
-Deploy your self-hosted instance using Docker for quick setup.
+## Настройте окружение
 
-<Steps>
-  <Step title="Pull the Image" icon="download">
-    Fetch the latest V3 Custody image from the registry.
-````bash
-docker pull v3finance/custody:latest
-````
-  </Step>
-  <Step title="Run the Container" icon="play">
-    Start the service with your configuration. Replace `YOUR_SEED_PHRASE` with a secure 12-24 word mnemonic.
-````bash
-docker run -d \
-  -p 3000:3000 \
-  -e SEED_PHRASE="YOUR_SEED_PHRASE" \
-  -e RPC_ETHEREUM="https://mainnet.infura.io/v3/YOUR_INFURA_KEY" \
-  v3finance/custody:latest
-````
-  </Step>
-  <Step title="Verify Deployment" icon="check-circle">
-    Check the logs and access the web interface at `http://localhost:3000`.
-````bash
-docker logs $(docker ps --filter ancestor=v3finance/custody:latest -q)
-````
-  </Step>
-</Steps>
+Сложите базовый URL и токен в переменные окружения, чтобы не повторять их в каждом запросе.
 
-Your instance is now running MPC custody on your infrastructure.
+<CodeGroup tabs="bash,JavaScript,Python">
+```bash
+export V3_BASE_URL="[BASE_URL]"
+export V3_TOKEN="YOUR_API_TOKEN"
+```
+```javascript
+const BASE_URL = process.env.V3_BASE_URL; // [BASE_URL]
+const TOKEN = process.env.V3_TOKEN;
 
-## Generate API Credentials
+const headers = {
+  Authorization: `Bearer ${TOKEN}`,
+  "Content-Type": "application/json",
+};
+```
+```python
+import os, requests
 
-Create your first API key for programmatic access.
+BASE_URL = os.environ["V3_BASE_URL"]  # [BASE_URL]
+TOKEN = os.environ["V3_TOKEN"]
 
-<Steps>
-  <Step title="Access Admin Panel" icon="settings">
-    Open `http://localhost:3000/admin` in your browser and log in with the generated admin credentials from the Docker logs.
-  </Step>
-  <Step title="Create API Key" icon="key">
-    Navigate to **API Keys** > **Generate New Key**.
-  </Step>
-</Steps>
+headers = {
+    "Authorization": f"Bearer {TOKEN}",
+    "Content-Type": "application/json",
+}
+```
+</CodeGroup>
 
-Copy the key (format: `v3c_...`). Store it securely as `YOUR_API_KEY`.
+<Callout kind="alert">
+  Не коммитьте токен в репозиторий и не подставляйте его в код напрямую — держите в переменных окружения или менеджере секретов.
+</Callout>
+
+## Шаг 1. Найдите свой Vault
+
+Vault — это дерево адресов вашей организации. Почти все маршруты начинаются с его кода (`code`, slug). Получите список доступных Vault'ов:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "$V3_BASE_URL/api/v1/vaults" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch(`${BASE_URL}/api/v1/vaults`, { headers });
+const vaults = await res.json();
+console.log(vaults);
+```
+```python
+res = requests.get(f"{BASE_URL}/api/v1/vaults", headers=headers)
+vaults = res.json()
+print(vaults)
+```
+</CodeGroup>
+
+```json
+[
+  {
+    "id": "cmr3f41z20001psp7phmyapw3",
+    "code": "demo_vault",
+    "name": "Demo Vault",
+    "lockedAt": null
+  }
+]
+```
+
+Запомните `code` — дальше он подставляется во все запросы как `{code}`.
+
+## Шаг 2. Проверьте баланс
+
+Баланс в V3 Custody не хранится отдельным числом, а вычисляется из проводок журнала. Он делится на **available** (можно тратить) и **reserved** (заблокировано под ожидающими переводами, но всё ещё ваше).
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "$V3_BASE_URL/api/v1/vaults/demo_vault/balances?summary=true" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch(
+  `${BASE_URL}/api/v1/vaults/demo_vault/balances?summary=true`,
+  { headers },
+);
+console.log(await res.json());
+```
+```python
+res = requests.get(
+    f"{BASE_URL}/api/v1/vaults/demo_vault/balances",
+    params={"summary": "true"},
+    headers=headers,
+)
+print(res.json())
+```
+</CodeGroup>
+
+```json
+{
+  "vaultId": "cmr3f41z20001psp7phmyapw3",
+  "totals": [
+    { "token": "usdt", "available": "186000.00", "reserved": "24000.00" }
+  ]
+}
+```
+
+<ParamField query="summary" param-type="string" required="false" enum="true,false">
+  `true` — вернуть только агрегаты по токенам, без списка счетов.
+</ParamField>
+<ParamField query="addressId" param-type="string" required="false">
+  Баланс конкретного адреса.
+</ParamField>
+<ParamField query="token" param-type="string" required="false">
+  Ограничить одним токеном (например, `usdt`).
+</ParamField>
 
 <Callout kind="tip">
-  API keys support granular permissions. For production, create role-based keys with policy restrictions.
+  Нужен баланс на дату в прошлом? Есть отдельный эндпоинт `GET /api/v1/vaults/{code}/balances/as-of?at=...`, который восстанавливает позицию из проводок, зафиксированных до выбранного момента.
 </Callout>
 
-## Fetch Account Balances
+## Шаг 3. Создайте адрес (опционально)
 
-Make your first API call to query balances for an account.
+Новый адрес готов к работе с первой секунды — активация и предварительное пополнение не нужны, комиссию берёт на себя Gas Station. Адрес задаётся сетью и набором статических сегментов деривации.
 
-<Request tabs="JavaScript,cURL,Python" show-lines="true">
-  ````javascript
-  const response = await fetch('http://localhost:3000/v1/accounts/0x742d35Cc6634C0532925a3b8D7c406D7247C748/page-balances?chain=ethereum', {
-    headers: {
-      'Authorization': `Bearer ${YOUR_API_KEY}`,
-      'Content-Type': 'application/json',
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "$V3_BASE_URL/api/v1/vaults/demo_vault/addresses" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "networkCode": "tron_network",
+    "staticSegments": { "purpose": "invoices", "asset": "usdt" }
+  }'
+```
+```javascript
+const res = await fetch(`${BASE_URL}/api/v1/vaults/demo_vault/addresses`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    networkCode: "tron_network",
+    staticSegments: { purpose: "invoices", asset: "usdt" },
+  }),
+});
+console.log(await res.json());
+```
+```python
+res = requests.post(
+    f"{BASE_URL}/api/v1/vaults/demo_vault/addresses",
+    headers=headers,
+    json={
+        "networkCode": "tron_network",
+        "staticSegments": {"purpose": "invoices", "asset": "usdt"},
     },
-  });
-  const balances = await response.json();
-  console.log(balances);
-  ````
-  ````bash
-  curl -X GET \
-    http://localhost:3000/v1/accounts/0x742d35Cc6634C0532925a3b8D7c406D7247C748/balances?chain=ethereum \
-    -H 'Authorization: Bearer YOUR_API_KEY' \
-    -H 'Content-Type: application/json'
-  ````
-  ````python
-  import requests
-  response = requests.get(
-    'http://localhost:3000/v1/accounts/0x742d35Cc6634C0532925a3b8D7c406D7247C748/balances?chain=ethereum',
-    headers={
-      'Authorization': f'Bearer {YOUR_API_KEY}',
-      'Content-Type': 'application/json',
-    }
-  )
-  balances = response.json()
-  print(balances)
-  ````
-</Request>
+)
+print(res.json())
+```
+</CodeGroup>
 
-<Response tabs="Success,Error">
-  ````json
-  {
-    "account": "0x742d35Cc6634C0532925a3b8D7c406D7247C748",
-    "chain": "ethereum",
-    "balances": [
-      {
-        "token": "0xA0b86a33... native ETH",
-        "balance": "1.234 ETH",
-        "usdValue": 2500.50
-      }
-    ],
-    "timestamp": "2024-01-15T10:30:00Z"
-  }
-  ````
-  ````json
-  {
-    "error": "Invalid account address",
-    "code": 400
-  }
-  ````
-</Response>
+```json
+{
+  "id": "cmr3f41z20001psp7phmyapw3",
+  "address": "TQ5kohbBSdorGoDBmCGUmDL7RUvNr75mBC",
+  "network": "tron",
+  "derivationPath": "m/44/195/0/0/1/1/0"
+}
+```
 
-<ParamField path="account" param-type="string" required="true">
-  The EVM account address (e.g., `0x742d35Cc6634C0532925a3b8D7c406D7247C748`).
-</ParamField>
+## Шаг 4. Отправьте перевод
 
-<ParamField query="chain" param-type="string" required="true">
-  Blockchain network (e.g., `ethereum`, `polygon`, `arbitrum`).
-</ParamField>
+Перевод не уходит в сеть сразу. Сначала сумма резервируется, затем запрос проходит через Policy Engine, который возвращает один из исходов — **allow**, **queue** (нужно подтверждение) или **block**. Только после этого MPC‑ноды подписывают транзакцию.
 
-## Initiate a Transaction with Policy Approval
+Передайте уникальный `idempotencyKey`: повтор запроса с тем же ключом вернёт уже созданный перевод и не задвоит платёж.
 
-Test the full flow: propose a transaction, trigger policy review, and approve.
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "$V3_BASE_URL/api/v1/vaults/demo_vault/transfers" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+    "toAddress": "TQ2m...p4rX",
+    "token": "usdt",
+    "amount": "1350.00",
+    "idempotencyKey": "quickstart-transfer-001"
+  }'
+```
+```javascript
+const res = await fetch(`${BASE_URL}/api/v1/vaults/demo_vault/transfers`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    fromAddressId: "cmr3f41z20001psp7phmyapw3",
+    toAddress: "TQ2m...p4rX",
+    token: "usdt",
+    amount: "1350.00",
+    idempotencyKey: "quickstart-transfer-001",
+  }),
+});
+console.log(await res.json());
+```
+```python
+res = requests.post(
+    f"{BASE_URL}/api/v1/vaults/demo_vault/transfers",
+    headers=headers,
+    json={
+        "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+        "toAddress": "TQ2m...p4rX",
+        "token": "usdt",
+        "amount": "1350.00",
+        "idempotencyKey": "quickstart-transfer-001",
+    },
+)
+print(res.json())
+```
+</CodeGroup>
 
-<Tabs>
-  <Tab title="Propose Transaction" icon="plus">
-    ````javascript
-    const tx = await fetch('http://localhost:3000/v1/transactions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${YOUR_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        account: '0x742d35Cc6634C0532925a3b8D7c406D7247C748',
-        chain: 'ethereum',
-        to: '0x1234567890123456789012345678901234567890',
-        value: '0.1',
-        data: '0x',
-        reason: 'Test transfer'
-      }),
-    });
-    ````
-    The transaction enters **Reserved** status and awaits policy approval.
-  </Tab>
-  <Tab title="Approve via Web/Mobile" icon="mobile">
-    1. Open `http://localhost:3000/approvals` (web) or the mobile app.
-    2. Review details: amount (`0.1 ETH`), recipient, reason.
-    3. Sign with MPC threshold (e.g., 2-of-3 signers).
-    
-    Transaction broadcasts on approval.
-  </Tab>
-</Tabs>
+<Callout kind="alert">
+  Набор полей тела запроса приведён для примера. Точный и всегда актуальный список параметров и форматов — в [Справочнике API](/api-reference) на странице создания перевода.
+</Callout>
 
-## Next Steps
+Если Policy Engine вернул **queue**, перевод ждёт подтверждения — заявку и её статус видно через `GET /api/v1/vaults/{code}/approval-requests`. Пока заявка ждёт, сумма остаётся в **reserved**; при отклонении она возвращается в **available**.
+
+## Что дальше
 
 <Columns cols={2}>
-  <Card title="Policy Engine" icon="shield" href="/policy-engine">
-    Configure rules, limits, and multi-party approvals for secure operations.
+  <Card title="Аутентификация" icon="key" href="/authentication" horizontal>
+    Bearer‑токены, cookie‑сессии и доступ по приглашению.
   </Card>
-  <Card title="Ledger Explorer" icon="book-open" href="/ledger">
-    Dive into double-entry postings and historical balances.
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Все эндпоинты, параметры и форматы ответов.
   </Card>
-  <Card title="Reports" icon="bar-chart-3" href="/reports">
-    Generate reproducible financial reports from on-chain data.
+  <Card title="Введение" icon="book-open" href="/introduction" horizontal>
+    Как устроены доли ключа, политики и журнал двойной записи.
   </Card>
-  <Card title="Supported Chains" icon="globe" href="/chains">
-    Add RPCs for 20+ chains like Ethereum, Polygon, and Solana.
+  <Card title="Ошибки" icon="alert-circle" href="/errors" horizontal>
+    Коды ошибок и что делать с каждой из них.
   </Card>
 </Columns>
-
-<Callout kind="success">
-  Congratulations! You've deployed V3 Custody and made your first API call. Customize policies and scale to production.
-</Callout>
