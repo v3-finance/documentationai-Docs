@@ -45,6 +45,11 @@
                 "icon": "compass"
               },
               {
+                "title": "Vault и деривация",
+                "path": "concepts/vaults",
+                "icon": "folder-tree"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
