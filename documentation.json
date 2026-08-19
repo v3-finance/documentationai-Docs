@@ -55,6 +55,11 @@
                 "icon": "wallet"
               },
               {
+                "title": "Журнал (двойная запись)",
+                "path": "concepts/ledger",
+                "icon": "scale"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
