@@ -75,6 +75,11 @@
                 "icon": "handshake"
               },
               {
+                "title": "Gas Station",
+                "path": "concepts/gas-station",
+                "icon": "fuel"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
