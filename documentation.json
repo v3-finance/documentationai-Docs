@@ -24,18 +24,12 @@
                 "icon": "home"
               },
               {
-                "title": "Quick Start",
+                "title": "Быстрый старт",
                 "path": "quickstart",
                 "icon": "zap"
-              }
-            ]
-          },
-          {
-            "group": "Guides",
-            "icon": "compass",
-            "pages": [
+              },
               {
-                "title": "Authentication",
+                "title": "Аутентификация",
                 "path": "authentication",
                 "icon": "lock"
               }
