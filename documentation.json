@@ -50,6 +50,11 @@
                 "icon": "folder-tree"
               },
               {
+                "title": "Адреса, папки и доступ",
+                "path": "concepts/addresses",
+                "icon": "wallet"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
