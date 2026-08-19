@@ -40,6 +40,11 @@
             "icon": "layers",
             "pages": [
               {
+                "title": "Обзор",
+                "path": "concepts/overview",
+                "icon": "compass"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
