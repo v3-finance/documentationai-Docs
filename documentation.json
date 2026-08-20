@@ -104,6 +104,11 @@
                 "title": "Сгенерировать адреса",
                 "path": "guides/generate-addresses",
                 "icon": "copy-plus"
+              },
+              {
+                "title": "Отправить перевод",
+                "path": "guides/send-transfer",
+                "icon": "send"
               }
             ]
           }
