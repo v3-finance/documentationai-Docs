@@ -114,6 +114,12 @@
                 "title": "Пред-проверить перевод",
                 "path": "guides/evaluate-transfer",
                 "icon": "search-check"
+              },
+              {
+                "title": "Настроить политику",
+                "path": "guides/configure-policies",
+                "icon": "sliders-horizontal",
+                "badge": "TODO"
               }
             ]
           }
