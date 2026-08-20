@@ -162,6 +162,11 @@
                 "title": "Окружения и базовые URL",
                 "path": "platform/environments",
                 "icon": "server"
+              },
+              {
+                "title": "Аутентификация детально",
+                "path": "platform/authentication",
+                "icon": "key-round"
               }
             ]
           }

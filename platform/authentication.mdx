@@ -1,0 +1,101 @@
+---
+title: Аутентификация детально
+description: Технические детали аутентификации V3 Custody — вход по magic-link, сессия better-auth, Bearer и cookie, ошибки и модель доступа.
+---
+
+Эта страница углубляет вводную [Аутентификацию](/authentication): здесь — вход по magic-link, жизненный цикл сессии, механика Bearer и cookie и граничные случаи. Оба способа аутентификации построены на сессии better-auth: **Bearer-токен** для сервисов и мобильных, **httpOnly-cookie** для веба.
+
+## Вход по magic-link
+
+Вход выполняется по magic-link, а не по паролю:
+
+- `POST /api/v1/auth/magic-link` — отправляет magic-link на email (через Cloudflare Email binding). Войти могут только существующие пользователи и приглашённые (с активным приглашением) — регистрация без приглашения заблокирована hook'ом better-auth. После клика по ссылке пользователь редиректится на фронтенд (`FRONTEND_URL`).
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/auth/magic-link" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "trader@acme.com" }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/auth/magic-link", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email: "trader@acme.com" }),
+});
+```
+```python
+import requests
+
+requests.post(
+    "[BASE_URL]/api/v1/auth/magic-link",
+    json={"email": "trader@acme.com"},
+)
+```
+</CodeGroup>
+
+<Callout kind="alert">
+  Точная схема тела запроса — в [Справочнике API](/api-reference) на странице magic-link. Поля в примере приведены для иллюстрации.
+</Callout>
+
+## Сессия better-auth
+
+После входа создаётся сессия better-auth. Веб получает httpOnly-cookie, а сервисы и мобильные используют токен сессии как Bearer.
+
+- **Срок действия сессии** — [TODO: указать время жизни сессии/токена].
+- **Обновление и ротация** — [TODO: описать механизм refresh/ротации токена, если он есть].
+
+## Bearer — для сервисов и мобильных
+
+Передайте токен сессии в заголовке:
+
+`Authorization: Bearer <токен>`
+
+<Callout kind="info">
+  [TODO: описать, как серверная интеграция получает токен доступа для Bearer — механизм выдачи пока уточняется. Найти по метке TODO.]
+</Callout>
+
+## Cookie — для веба
+
+При входе через веб-консоль better-auth выставляет httpOnly-cookie с сессией. Браузер отправляет её автоматически, из JavaScript она недоступна по замыслу.
+
+- **Имя cookie** — [TODO: уточнить имя session-cookie].
+- **Защита от CSRF** — [TODO: описать механизм CSRF для cookie-запросов].
+
+Для интеграций «сервер↔сервер» используйте Bearer, а не cookie.
+
+## Ошибки аутентификации
+
+Без валидного токена или сессии вернётся `401`:
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required. Please provide a valid API token",
+  "code": 401
+}
+```
+
+Аутентифицированный, но недостаточно авторизованный запрос вернёт `403` — доступ определяется членством в группах (default-deny; без allow-политик действия запрещены).
+
+## Модель доступа
+
+Аутентификация отвечает «кто вы», доступ — «что вам можно». В V3 Custody права определяются членством в группах политик, отдельных «скоупов» у токена нет. Видимость по умолчанию изолирована: участник видит своё, администратор — весь Vault; расширяется через `visibility-grants`. Подробнее — на странице [Аутентификация](/authentication) и в гайде [Пригласить команду](/guides/invite-team).
+
+## Лимиты запросов
+
+[TODO: описать rate limits на аутентификацию и API, если они есть.]
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Аутентификация" icon="lock" href="/authentication" horizontal>
+    Вводный обзор: Bearer, cookie и доступ по приглашению.
+  </Card>
+  <Card title="Пригласить команду" icon="user-plus" href="/guides/invite-team" horizontal>
+    Приглашения, роли и группы.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Схема magic-link и параметры аутентификации.
+  </Card>
+</Columns>
