@@ -109,6 +109,11 @@
                 "title": "Отправить перевод",
                 "path": "guides/send-transfer",
                 "icon": "send"
+              },
+              {
+                "title": "Пред-проверить перевод",
+                "path": "guides/evaluate-transfer",
+                "icon": "search-check"
               }
             ]
           }
