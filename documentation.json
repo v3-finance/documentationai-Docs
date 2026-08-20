@@ -140,6 +140,12 @@
                 "title": "Отчёты и снапшоты",
                 "path": "guides/reports-snapshots",
                 "icon": "chart-column"
+              },
+              {
+                "title": "Пополнить Gas Station",
+                "path": "guides/fund-gas-station",
+                "icon": "fuel",
+                "badge": "TODO"
               }
             ]
           }
