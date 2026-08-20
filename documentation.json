@@ -192,6 +192,11 @@
                 "title": "Модель доступа",
                 "path": "platform/access-model",
                 "icon": "shield"
+              },
+              {
+                "title": "Активы и сети",
+                "path": "platform/assets-networks",
+                "icon": "coins"
               }
             ]
           }
