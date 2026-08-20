@@ -1,0 +1,161 @@
+---
+title: Создать Vault со схемой деривации
+description: Спроектировать оси адресов и завести Vault одним запросом — сеть, статические и динамические сегменты, порядок и проверка.
+---
+
+Vault создаётся одним запросом вместе со всей структурой деривации. Самое важное происходит до кода — на этапе проектирования осей, по которым будут различаться ваши адреса. Здесь мы спроектируем схему, заведём Vault и проверим результат. Про модель в целом — на странице [Vault и деривация](/concepts/vaults).
+
+## Шаг 1. Спроектируйте оси
+
+Решите, какими осями различаются ваши адреса. Каждая ось — это сегмент пути:
+
+- **`network`** — обязательный сегмент: блокчейн и его `coinType` по BIP-44 (TRON — 195, Ethereum — 60).
+- **Статические сегменты** — закрытые списки: `purpose` (`invoices` / `settlement`), `asset` (`usdt` / `usdc`).
+- **Динамические сегменты** — целочисленный индекс на сущность: `client` (новая ветка на клиента).
+
+Порядок сегментов фиксирован и определяет форму пути. Для примера возьмём схему:
+
+```
+network → purpose → asset → client
+TRON      invoices   usdt    (динамический)
+          settlement usdc
+```
+
+<Callout kind="tip">
+  Оси стоит выбирать по тому, как вы ведёте учёт и пишете политики: те же сегменты станут селекторами Policy Engine и осями отчётов.
+</Callout>
+
+## Шаг 2. Создайте Vault
+
+Отправьте `POST /api/v1/vaults` с объектом `vault` (код и имя) и картой сегментов `routeMap`. Ключ `network` обязателен — его варианты попадают в реестр Network по `coinType`; остальные ключи становятся Route'ами, а их `order` нормализуется от 0 в порядке следования.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vault": { "code": "acme-otc", "name": "ACME OTC" },
+    "routeMap": {
+      "network": [{ "label": "TRON", "coinType": 195 }],
+      "purpose": [{ "label": "invoices" }, { "label": "settlement" }],
+      "asset":   [{ "label": "usdt" }, { "label": "usdc" }],
+      "client":  { "kind": "dynamic" }
+    }
+  }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    vault: { code: "acme-otc", name: "ACME OTC" },
+    routeMap: {
+      network: [{ label: "TRON", coinType: 195 }],
+      purpose: [{ label: "invoices" }, { label: "settlement" }],
+      asset: [{ label: "usdt" }, { label: "usdc" }],
+      client: { kind: "dynamic" },
+    },
+  }),
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={
+        "vault": {"code": "acme-otc", "name": "ACME OTC"},
+        "routeMap": {
+            "network": [{"label": "TRON", "coinType": 195}],
+            "purpose": [{"label": "invoices"}, {"label": "settlement"}],
+            "asset": [{"label": "usdt"}, {"label": "usdc"}],
+            "client": {"kind": "dynamic"},
+        },
+    },
+)
+```
+</CodeGroup>
+
+<Callout kind="alert">
+  Структура `routeMap` показана для примера, чтобы передать смысл (сеть с `coinType`, статические варианты, динамический сегмент). Точную схему тела запроса сверьте со [Справочником API](/api-reference) на странице создания Vault'а — она источник истины.
+</Callout>
+
+В ответ приходит созданный Vault со всеми связями; запомните его `code` — он подставляется во все дальнейшие запросы.
+
+## Шаг 3. Проверьте структуру
+
+Убедитесь, что сети и сегменты собрались как задумано:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults/acme-otc" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc", {
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+});
+console.log(await res.json());
+```
+```python
+requests.get(
+    "[BASE_URL]/api/v1/vaults/acme-otc",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+).json()
+```
+</CodeGroup>
+
+`GET /api/v1/vaults/{code}` возвращает подключённые сети (по `coinType`) и Route'ы (по `order`) со всеми вариантами — это и есть ваша структура деривации.
+
+## Шаг 4. Соберите пробный путь
+
+Прежде чем заводить адреса, проверьте схему, собрав канонический путь из значений сегментов:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/derivation-path/build" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "network": "TRON", "purpose": "invoices", "asset": "usdt", "client": 42 }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/derivation-path/build", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ network: "TRON", purpose: "invoices", asset: "usdt", client: 42 }),
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/derivation-path/build",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"network": "TRON", "purpose": "invoices", "asset": "usdt", "client": 42},
+)
+```
+</CodeGroup>
+
+`build` вернёт путь вида `m/44/195/0/0/42` и заодно проверит схему: сеть подключена, все Route'ы присутствуют, статические варианты существуют и включены, а динамические значения — в допустимом диапазоне. Обратная операция — `derivation-path/parse`.
+
+<Callout kind="tip">
+  Имена полей в теле `build` (значения сегментов) зависят от кодов ваших Route'ов — сверьте их со [Справочником API](/api-reference).
+</Callout>
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Vault и деривация" icon="folder-tree" href="/concepts/vaults" horizontal>
+    Модель деривации целиком: сеть, сегменты и пути.
+  </Card>
+  <Card title="Обзор гайдов" icon="compass" href="/guides/overview" horizontal>
+    Остальные пошаговые сценарии.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Точная схема создания Vault'а и derivation path.
+  </Card>
+</Columns>

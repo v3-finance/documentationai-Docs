@@ -94,6 +94,11 @@
                 "title": "Обзор",
                 "path": "guides/overview",
                 "icon": "compass"
+              },
+              {
+                "title": "Создать Vault",
+                "path": "guides/create-vault",
+                "icon": "folder-plus"
               }
             ]
           }
