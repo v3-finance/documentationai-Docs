@@ -120,6 +120,11 @@
                 "path": "guides/configure-policies",
                 "icon": "sliders-horizontal",
                 "badge": "TODO"
+              },
+              {
+                "title": "Обработать поступление",
+                "path": "guides/handle-deposit",
+                "icon": "arrow-down-to-line"
               }
             ]
           }
