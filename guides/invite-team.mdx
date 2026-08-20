@@ -1,0 +1,96 @@
+---
+title: Пригласить команду
+description: Пригласить участников по email с назначением групп, отозвать приглашение и добавить существующего пользователя в группу.
+---
+
+Регистрация в V3 Custody — только по приглашению. Вы приглашаете участника по email и сразу назначаете группы, в которые он попадёт при принятии; его доступ вытекает именно из этих групп. Про модель доступа — на страницах [Аутентификация](/authentication) и [Policy Engine](/concepts/policy-engine).
+
+## Шаг 1. Создайте приглашение
+
+`POST /api/v1/invitations` создаёт pending-приглашение со списком групп. Валидация: email свободен (нет пользователя и активного инвайта), все группы принадлежат Vault'у.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/invitations" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vaultId": "VAULT_ID",
+    "email": "trader@acme.com",
+    "groups": ["POLICY_GROUP_ID"]
+  }'
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/invitations", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    vaultId: "VAULT_ID",
+    email: "trader@acme.com",
+    groups: ["POLICY_GROUP_ID"],
+  }),
+});
+console.log(await res.json());
+```
+```python
+res = requests.post(
+    "[BASE_URL]/api/v1/invitations",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={
+        "vaultId": "VAULT_ID",
+        "email": "trader@acme.com",
+        "groups": ["POLICY_GROUP_ID"],
+    },
+)
+print(res.json())
+```
+</CodeGroup>
+
+В ответ приходит созданный инвайт с `token` для magic-link.
+
+<Callout kind="alert">
+  Точные имена полей тела (здесь — `vaultId`, `email`, `groups`) сверьте со [Справочником API](/api-reference) на странице создания приглашения.
+</Callout>
+
+## Шаг 2. Принятие приглашения
+
+У инвайта есть `token`. Страница принятия читает его публичным эндпоинтом:
+
+- `GET /api/v1/invitations/by-token/{token}` — публичный, без авторизации (безопасность держится на энтропии токена). Показывает «You're invited to \<vault\> as \<groups\>»; для отозванных/принятых возвращает `410 Gone`.
+
+При реальной регистрации принятие происходит автоматически: better-auth находит pending-инвайт по email, создаёт `PolicyGroupMembership` и помечает инвайт принятым. Для отладки есть `POST /api/v1/invitations/accept-debug`, который выполняет ту же логику для уже существующего пользователя.
+
+## Шаг 3. Управляйте приглашениями
+
+- `GET /api/v1/vaults/{code}/invitations` — список приглашений Vault'а.
+- `POST /api/v1/invitations/{id}/revoke` — отозвать pending-инвайт.
+
+<Callout kind="info">
+  Принятое приглашение отозвать нельзя — вместо этого уберите пользователя из групп.
+</Callout>
+
+## Шаг 4. Роли — это группы
+
+Права участника вытекают из групп, в которых он состоит — отдельных «скоупов» у токена нет. Чтобы добавить уже существующего пользователя в группу:
+
+- `POST /api/v1/policy-groups` — создать группу политик.
+- `POST /api/v1/policy-groups/{id}/members` — добавить участника (`userId` может быть произвольной строкой — используется и для сервисов).
+
+Убирание из группы снимает тот доступ, который она давала.
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Аутентификация" icon="lock" href="/authentication" horizontal>
+    Регистрация по приглашению и модель доступа.
+  </Card>
+  <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
+    Как группы определяют права и политики.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Приглашения, группы и участники.
+  </Card>
+</Columns>

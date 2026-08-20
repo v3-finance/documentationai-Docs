@@ -125,6 +125,11 @@
                 "title": "Обработать поступление",
                 "path": "guides/handle-deposit",
                 "icon": "arrow-down-to-line"
+              },
+              {
+                "title": "Пригласить команду",
+                "path": "guides/invite-team",
+                "icon": "user-plus"
               }
             ]
           }
