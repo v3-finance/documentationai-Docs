@@ -99,6 +99,11 @@
                 "title": "Создать Vault",
                 "path": "guides/create-vault",
                 "icon": "folder-plus"
+              },
+              {
+                "title": "Сгенерировать адреса",
+                "path": "guides/generate-addresses",
+                "icon": "copy-plus"
               }
             ]
           }

@@ -1,0 +1,208 @@
+---
+title: Сгенерировать адреса
+description: Создавать адреса по статическим сегментам, получать пачку за счёт авто-инкремента динамического сегмента и группировать их в папку.
+---
+
+Когда схема Vault'а готова ([Создать Vault](/guides/create-vault)), создать адрес — значит выбрать значения статических сегментов; индекс динамического сегмента платформа присвоит сама. Повторяя запрос, вы получаете пачку адресов в одном поддереве. Про модель адресов — на странице [Адреса, папки и доступ](/concepts/addresses).
+
+## Шаг 1. Создайте один адрес
+
+Отправьте `POST /api/v1/vaults/{code}/addresses` с кодом сети (`networkCode`) и значениями статических сегментов (`staticSegments`). Индекс динамического сегмента подбирается автоматически.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/addresses" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "networkCode": "tron_network",
+    "staticSegments": { "purpose": "invoices", "asset": "usdt" }
+  }'
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/addresses", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    networkCode: "tron_network",
+    staticSegments: { purpose: "invoices", asset: "usdt" },
+  }),
+});
+console.log(await res.json());
+```
+```python
+res = requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/addresses",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={
+        "networkCode": "tron_network",
+        "staticSegments": {"purpose": "invoices", "asset": "usdt"},
+    },
+)
+print(res.json())
+```
+</CodeGroup>
+
+```json
+{
+  "id": "cmr3f41z20001psp7phmyapw3",
+  "address": "TQ5kohbBSdorGoDBmCGUmDL7RUvNr75mBC",
+  "network": "tron",
+  "derivationPath": "m/44/195/0/0/1"
+}
+```
+
+Под капотом платформа считает следующий свободный индекс для этой комбинации сегментов, собирает канонический путь и прогоняет создание через Policy Engine (`action=create_address`).
+
+<Callout kind="info">
+  Адрес готов к работе сразу — активация и предварительное пополнение не нужны, комиссию берёт на себя Gas Station.
+</Callout>
+
+## Шаг 2. Сгенерируйте пачку
+
+Отдельного «пакетного» эндпоинта нет — пачка получается повторными вызовами. Каждый вызов с **той же** комбинацией статических сегментов получает следующий свободный индекс динамического сегмента, поэтому N запросов дают N адресов в одном поддереве.
+
+<CodeGroup tabs="bash,JavaScript,Python">
+```bash
+for i in $(seq 1 5); do
+  curl -sS -X POST "[BASE_URL]/api/v1/vaults/acme-otc/addresses" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "networkCode": "tron_network", "staticSegments": { "purpose": "invoices", "asset": "usdt" } }'
+done
+```
+```javascript
+const body = {
+  networkCode: "tron_network",
+  staticSegments: { purpose: "invoices", asset: "usdt" },
+};
+
+for (let i = 0; i < 5; i++) {
+  const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/addresses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  console.log((await res.json()).address);
+}
+```
+```python
+body = {
+    "networkCode": "tron_network",
+    "staticSegments": {"purpose": "invoices", "asset": "usdt"},
+}
+
+for _ in range(5):
+    res = requests.post(
+        "[BASE_URL]/api/v1/vaults/acme-otc/addresses",
+        headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+        json=body,
+    )
+    print(res.json()["address"])
+```
+</CodeGroup>
+
+<Callout kind="info">
+  Расчёт индекса устойчив к гонкам (SQL MAX с повтором при конфликте), поэтому параллельные запросы не займут один путь. Если политика требует подтверждения создания адреса, запрос вернёт `202` с идентификатором заявки вместо адреса — обрабатывайте оба случая.
+</Callout>
+
+## Шаг 3. Найдите созданные адреса
+
+Проверьте, что адреса появились:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults/acme-otc/addresses?token=usdt" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch(
+  "[BASE_URL]/api/v1/vaults/acme-otc/addresses?token=usdt",
+  { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
+);
+console.log(await res.json());
+```
+```python
+requests.get(
+    "[BASE_URL]/api/v1/vaults/acme-otc/addresses",
+    params={"token": "usdt"},
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+).json()
+```
+</CodeGroup>
+
+`GET /api/v1/vaults/{code}/addresses` поддерживает фильтры `search`, `token` и `access=shared`.
+
+## Шаг 4. Сгруппируйте в папку (опционально)
+
+Если адреса нужно вести и шэрить вместе, сложите их в папку: один грант на папку покроет все адреса, включая добавленные позже.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+# создать папку
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/address-folders" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Invoices — USDT" }'
+
+# добавить в неё адрес
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/members" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "addressId": "ADDRESS_ID" }'
+```
+```javascript
+// создать папку
+const folder = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ name: "Invoices — USDT" }),
+}).then((r) => r.json());
+
+// добавить адрес
+await fetch(`[BASE_URL]/api/v1/vaults/acme-otc/address-folders/${folder.id}/members`, {
+  method: "POST",
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ addressId: "ADDRESS_ID" }),
+});
+```
+```python
+# создать папку
+folder = requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/address-folders",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"name": "Invoices — USDT"},
+).json()
+
+# добавить адрес
+requests.post(
+    f"[BASE_URL]/api/v1/vaults/acme-otc/address-folders/{folder['id']}/members",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"addressId": "ADDRESS_ID"},
+)
+```
+</CodeGroup>
+
+<Callout kind="alert">
+  Имена полей в телах (`name`, `addressId`) даны для примера — точные схемы папки и её членов сверьте со [Справочником API](/api-reference).
+</Callout>
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Адреса, папки и доступ" icon="wallet" href="/concepts/addresses" horizontal>
+    Как работает доступ, папки и изоляция видимости.
+  </Card>
+  <Card title="Создать Vault" icon="folder-plus" href="/guides/create-vault" horizontal>
+    Схема деривации, из которой рождаются адреса.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Точные схемы создания адреса и папок.
+  </Card>
+</Columns>
