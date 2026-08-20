@@ -167,6 +167,11 @@
                 "title": "Аутентификация детально",
                 "path": "platform/authentication",
                 "icon": "key-round"
+              },
+              {
+                "title": "Суммы и точность",
+                "path": "platform/amounts-precision",
+                "icon": "calculator"
               }
             ]
           }
