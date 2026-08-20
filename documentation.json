@@ -85,6 +85,17 @@
                 "icon": "alert-circle"
               }
             ]
+          },
+          {
+            "group": "Guides",
+            "icon": "list-checks",
+            "pages": [
+              {
+                "title": "Обзор",
+                "path": "guides/overview",
+                "icon": "compass"
+              }
+            ]
           }
         ]
       },
