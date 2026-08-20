@@ -177,6 +177,11 @@
                 "title": "Пагинация и фильтры",
                 "path": "platform/pagination-filtering",
                 "icon": "chevrons-right"
+              },
+              {
+                "title": "Идемпотентность",
+                "path": "platform/idempotency",
+                "icon": "repeat"
               }
             ]
           }
