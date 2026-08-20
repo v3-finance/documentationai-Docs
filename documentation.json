@@ -78,11 +78,6 @@
                 "title": "Gas Station",
                 "path": "concepts/gas-station",
                 "icon": "fuel"
-              },
-              {
-                "title": "Errors",
-                "path": "errors",
-                "icon": "alert-circle"
               }
             ]
           },
@@ -182,6 +177,11 @@
                 "title": "Идемпотентность",
                 "path": "platform/idempotency",
                 "icon": "repeat"
+              },
+              {
+                "title": "Модель ошибок",
+                "path": "platform/errors",
+                "icon": "alert-circle"
               }
             ]
           }
