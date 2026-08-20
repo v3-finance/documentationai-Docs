@@ -187,6 +187,11 @@
                 "title": "Вебхуки",
                 "path": "platform/webhooks",
                 "icon": "webhook"
+              },
+              {
+                "title": "Модель доступа",
+                "path": "platform/access-model",
+                "icon": "shield"
               }
             ]
           }
