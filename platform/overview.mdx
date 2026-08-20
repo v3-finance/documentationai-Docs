@@ -12,18 +12,35 @@ description: Сквозные технические темы платформы
 
 ## Что здесь есть
 
-- **Окружения и базовые URL** — как адресовать свой инстанс.
-- **Суммы и точность** — raw-единицы и десятичное представление.
-- **Пагинация и фильтры** — keyset-пагинация и общие фильтры списков.
-- **Идемпотентность** — безопасные ретраи через `idempotencyKey`.
-- **Модель ошибок** — структура ответов с ошибками и коды.
-- **Вебхуки** — входящие события Wallet Service.
-- **Модель доступа** — изоляция видимости и права через группы.
-- **Активы и сети** — реестр Network и токены по contract address.
-
-<Callout kind="info">
-  Страницы раздела добавляются по одной. По мере готовности здесь появятся ссылки на каждую тему.
-</Callout>
+<Columns cols={2}>
+  <Card title="Окружения и базовые URL" icon="server" href="/platform/environments" horizontal>
+    Как адресовать свой инстанс; префикс /api/v1.
+  </Card>
+  <Card title="Аутентификация детально" icon="key-round" href="/platform/authentication" horizontal>
+    magic-link, сессия, Bearer и cookie.
+  </Card>
+  <Card title="Суммы и точность" icon="calculator" href="/platform/amounts-precision" horizontal>
+    raw-единицы и десятичное представление.
+  </Card>
+  <Card title="Пагинация и фильтры" icon="chevrons-right" href="/platform/pagination-filtering" horizontal>
+    keyset-пагинация и общие фильтры.
+  </Card>
+  <Card title="Идемпотентность" icon="repeat" href="/platform/idempotency" horizontal>
+    Безопасные ретраи через idempotencyKey.
+  </Card>
+  <Card title="Модель ошибок" icon="alert-circle" href="/platform/errors" horizontal>
+    Структура ответов с ошибками и коды.
+  </Card>
+  <Card title="Вебхуки" icon="webhook" href="/platform/webhooks" horizontal>
+    Входящие события Wallet Service.
+  </Card>
+  <Card title="Модель доступа" icon="shield" href="/platform/access-model" horizontal>
+    Изоляция видимости и права через группы.
+  </Card>
+  <Card title="Активы и сети" icon="coins" href="/platform/assets-networks" horizontal>
+    Реестр Network и токены по contract address.
+  </Card>
+</Columns>
 
 ## Смежные разделы
 
