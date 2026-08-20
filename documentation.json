@@ -172,6 +172,11 @@
                 "title": "Суммы и точность",
                 "path": "platform/amounts-precision",
                 "icon": "calculator"
+              },
+              {
+                "title": "Пагинация и фильтры",
+                "path": "platform/pagination-filtering",
+                "icon": "chevrons-right"
               }
             ]
           }

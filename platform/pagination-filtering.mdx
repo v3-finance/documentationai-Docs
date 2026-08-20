@@ -1,0 +1,99 @@
+---
+title: Пагинация и фильтры
+description: Как листать списки через keyset-пагинацию (cursor/nextCursor) и какие фильтры общие для эндпоинтов-списков.
+---
+
+Списки в V3 Custody используют **keyset-пагинацию** по курсору: вы листаете, передавая курсор предыдущей страницы. В отличие от offset, keyset устойчив к вставкам — строки не пропускаются и не дублируются между страницами.
+
+## Keyset-пагинация
+
+Список возвращает элементы и курсор следующей страницы:
+
+```json
+{
+  "items": [ ... ],
+  "nextCursor": "eyJpZCI6..."
+}
+```
+
+- `cursor` — передайте сюда `nextCursor` предыдущей страницы, чтобы получить следующую.
+- `limit` — размер страницы.
+- Когда `nextCursor` пуст или отсутствует — страницы кончились.
+
+## Сортировка
+
+По умолчанию списки идут «сначала свежие»: убывание по временно́му ключу с `id` как tiebreaker. Например, журнал — по `postedAt`, `id`; лента операций — по `createdAt`, `id`; контрагенты — по `createdAt`. Курсор идёт в этом же порядке.
+
+## Общие фильтры
+
+Набор зависит от эндпоинта, но встречаются одни и те же:
+
+- **`from` / `to`** — временно́е окно (по `createdAt` или `postedAt`).
+- **`direction`** — `in` / `out` (лента операций).
+- **`token`** — ограничить токеном (балансы, адреса, журнал).
+- **`status`** — статус (заявки, операции).
+- **`search`** — подстрока (адреса, контрагенты).
+- **`access=shared`** — только доступное вам (адреса).
+- **`mine` / `pendingMine`** — мои / ждут моего голоса (заявки).
+- **`userId`** — admin: чью активность показать.
+
+<Callout kind="info">
+  Доступные фильтры различаются по эндпоинтам — точный список смотрите в [Справочнике API](/api-reference) на странице конкретного списка.
+</Callout>
+
+## Пример: пройти все страницы
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+# одна страница; для следующей подставьте nextCursor в ?cursor=
+curl "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in&limit=100" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+let cursor;
+const all = [];
+do {
+  const url = new URL("[BASE_URL]/api/v1/vaults/acme-otc/history");
+  url.searchParams.set("direction", "in");
+  url.searchParams.set("limit", "100");
+  if (cursor) url.searchParams.set("cursor", cursor);
+
+  const page = await fetch(url, {
+    headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+  }).then((r) => r.json());
+
+  all.push(...page.items);
+  cursor = page.nextCursor;
+} while (cursor);
+```
+```python
+cursor, items = None, []
+while True:
+    params = {"direction": "in", "limit": 100}
+    if cursor:
+        params["cursor"] = cursor
+    page = requests.get(
+        "[BASE_URL]/api/v1/vaults/acme-otc/history",
+        params=params,
+        headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    ).json()
+    items += page["items"]
+    cursor = page.get("nextCursor")
+    if not cursor:
+        break
+```
+</CodeGroup>
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+    Лента операций и журнал — пагинируемые списки.
+  </Card>
+  <Card title="Аппрувалы" icon="check-check" href="/concepts/approvals" horizontal>
+    Фильтры mine / pendingMine / status.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Фильтры и курсоры по каждому списку.
+  </Card>
+</Columns>
