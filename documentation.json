@@ -157,6 +157,11 @@
                 "title": "Обзор",
                 "path": "platform/overview",
                 "icon": "compass"
+              },
+              {
+                "title": "Окружения и базовые URL",
+                "path": "platform/environments",
+                "icon": "server"
               }
             ]
           }
