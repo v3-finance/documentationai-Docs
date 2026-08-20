@@ -148,6 +148,17 @@
                 "badge": "TODO"
               }
             ]
+          },
+          {
+            "group": "Platform",
+            "icon": "plug",
+            "pages": [
+              {
+                "title": "Обзор",
+                "path": "platform/overview",
+                "icon": "compass"
+              }
+            ]
           }
         ]
       },
