@@ -1,0 +1,147 @@
+---
+title: Выдать и отозвать доступ
+description: Открыть доступ к адресу или папке ролью, изменить или отозвать грант и проверить, кто и откуда имеет доступ.
+---
+
+Доступ к адресам выдаётся точечно — на адрес — или целиком на папку, ролью `viewer` или `contributor`. Субъектом может быть пользователь или группа, а грант на папку покрывает и будущие адреса. Здесь — как выдать, изменить и отозвать доступ и как проверить, у кого он есть. Про модель — на странице [Адреса, папки и доступ](/concepts/addresses).
+
+## Шаг 1. Выдайте доступ к адресу
+
+`POST /api/v1/vaults/{code}/addresses/{id}/shares` выдаёт грант на конкретный адрес. Субъект полиморфен (`subjectType: user|group`), права задаются ролью.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "subjectType": "user", "subjectId": "USER_ID", "role": "viewer" }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ subjectType: "user", subjectId: "USER_ID", role: "viewer" }),
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"subjectType": "user", "subjectId": "USER_ID", "role": "viewer"},
+)
+```
+</CodeGroup>
+
+<Callout kind="info">
+  Грант на адрес идемпотентен: повторная выдача тому же субъекту обновляет права и реактивирует отозванный грант — отдельного «изменить» не нужно. Пакетная форма — через `subjects[]`. Право `canCreateAddress` в роль не входит и выдаётся отдельно. Точную схему — в [Справочнике API](/api-reference).
+</Callout>
+
+## Шаг 2. Выдайте доступ к папке
+
+Грант на папку даёт права на все её адреса, включая добавленные позже:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "subjectType": "group", "subjectId": "USER_GROUP_ID", "role": "contributor" }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ subjectType: "group", subjectId: "USER_GROUP_ID", role: "contributor" }),
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"subjectType": "group", "subjectId": "USER_GROUP_ID", "role": "contributor"},
+)
+```
+</CodeGroup>
+
+## Шаг 3. Измените или отозовите грант
+
+Для папки есть явные эндпоинты на изменение и отзыв гранта:
+
+- `PATCH /api/v1/vaults/{code}/address-folders/{id}/grants/{grantId}` — изменить роль (`viewer|contributor`); ответ содержит `role`.
+- `DELETE /api/v1/vaults/{code}/address-folders/{id}/grants/{grantId}` — отозвать грант.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X PATCH "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "role": "viewer" }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID", {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ role: "viewer" }),
+});
+```
+```python
+requests.patch(
+    "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"role": "viewer"},
+)
+```
+</CodeGroup>
+
+Для адресного гранта отдельное «изменить» не нужно — повторный `POST /shares` обновляет права; отзыв делается `DELETE` на шер (точный путь — в [Справочнике API](/api-reference)).
+
+<Callout kind="info">
+  Отзыв гранта на группу снимает доступ у всех её участников; личный грант отзывается точечно.
+</Callout>
+
+## Шаг 4. Проверьте, кто и откуда имеет доступ
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch(
+  "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants",
+  { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
+);
+console.log(await res.json());
+```
+```python
+requests.get(
+    "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+).json()
+```
+</CodeGroup>
+
+`participants` показывает людей (владелец отдан отдельно, группы раскрыты), а поле `via` — источник доступа (`direct` / `user_group` / папка) и тем самым способ его убрать. Смежные списки: `GET /vaults/{code}/shared-with-me` (только прямые гранты), `GET /vaults/{code}/shared-by-me` (что вы открыли) и `GET /vaults/{code}/addresses?access=shared` (всё доступное вам).
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Адреса, папки и доступ" icon="wallet" href="/concepts/addresses" horizontal>
+    Роли, источники доступа и изоляция видимости.
+  </Card>
+  <Card title="Пригласить команду" icon="user-plus" href="/guides/invite-team" horizontal>
+    Приглашения, группы и участники.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Шеры, гранты папок и participants.
+  </Card>
+</Columns>

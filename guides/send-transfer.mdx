@@ -1,0 +1,186 @@
+---
+title: Отправить перевод
+description: Создать исходящий перевод с идемпотентностью, разобраться в состояниях (резерв, awaiting_approval, confirmed) и отменить зависшую заявку.
+---
+
+Перевод не уходит в сеть сразу: сумма сначала резервируется, затем Policy Engine решает `allow` / `queue` / `block`, и только потом MPC-ноды подписывают транзакцию. Здесь — как отправить перевод, что происходит с его состоянием и как отменить зависшую заявку. Механику резерва см. в [Журнале](/concepts/ledger), решения — в [Policy Engine](/concepts/policy-engine).
+
+## Шаг 1. Отправьте перевод
+
+`POST /api/v1/vaults/{code}/transfers` создаёт исходящий перевод. Всегда передавайте `idempotencyKey`: повтор с тем же ключом вернёт уже созданный перевод, а не задвоит платёж.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+    "toAddress": "TQ2m...p4rX",
+    "token": "usdt",
+    "amount": "1350.00",
+    "idempotencyKey": "payout-2026-03-14-001"
+  }'
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    fromAddressId: "cmr3f41z20001psp7phmyapw3",
+    toAddress: "TQ2m...p4rX",
+    token: "usdt",
+    amount: "1350.00",
+    idempotencyKey: "payout-2026-03-14-001",
+  }),
+});
+console.log(await res.json());
+```
+```python
+res = requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/transfers",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={
+        "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+        "toAddress": "TQ2m...p4rX",
+        "token": "usdt",
+        "amount": "1350.00",
+        "idempotencyKey": "payout-2026-03-14-001",
+    },
+)
+print(res.json())
+```
+</CodeGroup>
+
+Под капотом платформа резолвит адрес и токен, конвертирует сумму по `decimals`, проверяет баланс и прогоняет запрос через Policy Engine (`action=transfer`). При запрете вернётся `403`, при нехватке средств — ошибка `INSUFFICIENT_BALANCE`.
+
+```json
+{
+  "transaction": { "...": "..." },
+  "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+  "toAddress": "TQ2m...p4rX",
+  "amount": "1350000000",
+  "amountDecimal": "1350.00"
+}
+```
+
+Сумма возвращается в двух видах: `amount` — в минимальных единицах (raw), `amountDecimal` — в человеческом формате.
+
+<Callout kind="alert">
+  Набор полей тела приведён для примера. Точную схему запроса сверьте со [Справочником API](/api-reference) на странице создания перевода.
+</Callout>
+
+## Шаг 2. Три состояния перевода
+
+Исход зависит от Policy Engine:
+
+- **`allow`** — перевод исполняется сразу (в демо-режиме успешный broadcast сразу считается `confirmed`).
+- **`queue`** — перевод создаётся в статусе `awaiting_approval`; сумма держится в `reserved` и ждёт m-of-n подтверждений.
+- **`block`** — перевод не создаётся, приходит `403` с причиной.
+
+При отклонении или отмене зарезервированная сумма возвращается в `available`.
+
+## Шаг 3. Проверьте статус
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID", {
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+});
+console.log(await res.json());
+```
+```python
+requests.get(
+    "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+).json()
+```
+</CodeGroup>
+
+`GET /api/v1/vaults/{code}/transfers/{id}` возвращает статус, суммы (raw и decimal) и — для переводов, требующих одобрения, — снапшот одобряющих с их голосами.
+
+## Шаг 4. Подтвердите (если перевод в очереди)
+
+Если перевод в статусе `awaiting_approval`, члены approver-группы голосуют:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "decision": "approve" }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ decision: "approve" }),
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"decision": "approve"},
+)
+```
+</CodeGroup>
+
+- `approve` добирает порог — перевод исполняется.
+- `reject` — вето: перевод сразу `rejected`, средства возвращаются.
+- Инициатор не голосует за свой перевод; у каждого — один голос.
+
+Подробнее о заявках — на странице [Аппрувалы](/concepts/approvals).
+
+<Callout kind="alert">
+  Точное имя поля голоса (здесь — `decision`) сверьте со [Справочником API](/api-reference) на странице голосования по переводу.
+</Callout>
+
+## Шаг 5. Отмените зависший перевод
+
+Если одобряющие бездействуют, инициатор может отозвать перевод, пока тот ждёт одобрения:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+)
+```
+</CodeGroup>
+
+`cancel` переводит заявку в `rejected` и возвращает зарезервированные средства. После одобрения или исполнения отменить нельзя.
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+    Резерв, состояния баланса и идемпотентность.
+  </Card>
+  <Card title="Аппрувалы" icon="check-check" href="/concepts/approvals" horizontal>
+    Голосование, снапшот подписантов и veto.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Схема перевода, голосования и отмены.
+  </Card>
+</Columns>

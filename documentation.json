@@ -85,6 +85,69 @@
                 "icon": "alert-circle"
               }
             ]
+          },
+          {
+            "group": "Guides",
+            "icon": "list-checks",
+            "pages": [
+              {
+                "title": "Обзор",
+                "path": "guides/overview",
+                "icon": "compass"
+              },
+              {
+                "title": "Создать Vault",
+                "path": "guides/create-vault",
+                "icon": "folder-plus"
+              },
+              {
+                "title": "Сгенерировать адреса",
+                "path": "guides/generate-addresses",
+                "icon": "copy-plus"
+              },
+              {
+                "title": "Отправить перевод",
+                "path": "guides/send-transfer",
+                "icon": "send"
+              },
+              {
+                "title": "Пред-проверить перевод",
+                "path": "guides/evaluate-transfer",
+                "icon": "search-check"
+              },
+              {
+                "title": "Настроить политику",
+                "path": "guides/configure-policies",
+                "icon": "sliders-horizontal",
+                "badge": "TODO"
+              },
+              {
+                "title": "Обработать поступление",
+                "path": "guides/handle-deposit",
+                "icon": "arrow-down-to-line"
+              },
+              {
+                "title": "Пригласить команду",
+                "path": "guides/invite-team",
+                "icon": "user-plus"
+              },
+              {
+                "title": "Выдать и отозвать доступ",
+                "path": "guides/share-access",
+                "icon": "share-2"
+              },
+              {
+                "title": "Отчёты и снапшоты",
+                "path": "guides/reports-snapshots",
+                "icon": "chart-column"
+              },
+              {
+                "title": "Пополнить Gas Station",
+                "path": "guides/fund-gas-station",
+                "icon": "fuel",
+                "badge": "TODO"
+              }
+            ]
           }
         ]
       },

@@ -1,0 +1,137 @@
+---
+title: Построить отчёт и зафиксировать снапшот
+description: Собрать живой отчёт (account statement), зафиксировать иммутабельный снапшот с хешем и выгрузить его в JSON/CSV.
+---
+
+Отчёты бывают двух видов: **живые** (меняются вместе с данными) и **снапшоты** (зафиксированы с хешем, воспроизводимы). Для выписок и сверок вы фиксируете снапшот, а потом выгружаете его. Про неизменяемость и балансы на дату — в [Журнале](/concepts/ledger).
+
+## Шаг 1. Постройте живой отчёт
+
+`GET /api/v1/vaults/{code}/reports/account_statement` строит выписку за период. Обязательны `from` и `to`; есть `timezone`, `userId` (admin: сузить до пользователя) и `breakdownBy=owner`.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults/acme-otc/reports/account_statement?from=2026-03-01&to=2026-03-31&timezone=UTC" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const params = new URLSearchParams({ from: "2026-03-01", to: "2026-03-31", timezone: "UTC" });
+const res = await fetch(
+  `[BASE_URL]/api/v1/vaults/acme-otc/reports/account_statement?${params}`,
+  { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
+);
+console.log(await res.json());
+```
+```python
+requests.get(
+    "[BASE_URL]/api/v1/vaults/acme-otc/reports/account_statement",
+    params={"from": "2026-03-01", "to": "2026-03-31", "timezone": "UTC"},
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+).json()
+```
+</CodeGroup>
+
+Живой отчёт отражает текущее состояние данных. Рядом есть другие: `GET .../reports/approval_activity` и `POST .../reports/query-operations` (плоский реестр операций по фильтрам).
+
+## Шаг 2. Зафиксируйте снапшот
+
+`POST /api/v1/vaults/{code}/report-snapshots` формирует отчёт, фиксирует `dataCutoff` и сохраняет результат вместе с манифестом операций и canonical sha256.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/report-snapshots" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reportType": "account_statement",
+    "from": "2026-03-01",
+    "to": "2026-03-31",
+    "timezone": "UTC"
+  }'
+```
+```javascript
+const snapshot = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/report-snapshots", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    reportType: "account_statement",
+    from: "2026-03-01",
+    to: "2026-03-31",
+    timezone: "UTC",
+  }),
+}).then((r) => r.json());
+```
+```python
+snapshot = requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/report-snapshots",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={
+        "reportType": "account_statement",
+        "from": "2026-03-01",
+        "to": "2026-03-31",
+        "timezone": "UTC",
+    },
+).json()
+```
+</CodeGroup>
+
+<Callout kind="info">
+  Снапшот иммутабелен: повторный просмотр даёт те же цифры, даже если с тех пор поменялись операции, курс или имена (ретро-матч, переименования). Слишком большой результат (>~900KB) вернёт `REPORT_PERIOD_TOO_LARGE` — сузьте фильтры. Точную схему тела сверьте со [Справочником API](/api-reference).
+</Callout>
+
+## Шаг 3. Найдите и прочитайте снапшоты
+
+- `GET /api/v1/vaults/{code}/report-snapshots` — список (фильтры `reportType`, `limit`).
+- `GET /api/v1/vaults/{code}/report-snapshots/{id}` — один снапшот.
+- `DELETE /api/v1/vaults/{code}/report-snapshots/{id}` — удалить.
+
+## Шаг 4. Выгрузите снапшот
+
+Экспорт строится **из снапшота**, а не из живого запроса — поэтому выгрузка совпадает с зафиксированными цифрами:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/report-snapshots/SNAPSHOT_ID/exports" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "format": "csv" }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/report-snapshots/SNAPSHOT_ID/exports", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ format: "csv" }),
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/report-snapshots/SNAPSHOT_ID/exports",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"format": "csv"},
+)
+```
+</CodeGroup>
+
+<Callout kind="alert">
+  Сейчас поддерживаются форматы `json` и `csv` (плоский реестр операций). `xlsx` и `pdf` пока зарезервированы — возвращают `REPORT_UNSUPPORTED_FORMAT` до отдельной итерации.
+</Callout>
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+    Балансы на дату и неизменяемость журнала.
+  </Card>
+  <Card title="Контрагенты и контекст" icon="handshake" href="/concepts/counterparties" horizontal>
+    Категории и метаданные в отчётах.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Отчёты, снапшоты и экспорт.
+  </Card>
+</Columns>

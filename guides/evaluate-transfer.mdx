@@ -1,0 +1,110 @@
+---
+title: Пред-проверить перевод
+description: Проверить перевод через POST /evaluate до создания операции — узнать allow/queue/block, причину и сработавшие политики, ничего не меняя.
+---
+
+Перед тем как создавать перевод, можно спросить Policy Engine: «пройдёт ли это?» — не создавая ничего и не резервируя средства. `evaluate` возвращает тот же вердикт `allow` / `queue` / `block` с причиной и списком сработавших политик. Удобно для пред-флайт проверок в UI и автоматизации. Про сам движок — на странице [Policy Engine](/concepts/policy-engine).
+
+## Шаг 1. Отправьте запрос на оценку
+
+`POST /api/v1/evaluate` — это топ-левел эндпоинт (не внутри `/vaults/{code}`). Он ничего не создаёт — только считает вердикт.
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/evaluate" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "transfer",
+    "vaultId": "VAULT_ID",
+    "userId": "USER_ID",
+    "asset": "usdt",
+    "amount": "1350.00",
+    "toAddress": "TQ2m...p4rX"
+  }'
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/evaluate", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    action: "transfer",
+    vaultId: "VAULT_ID",
+    userId: "USER_ID",
+    asset: "usdt",
+    amount: "1350.00",
+    toAddress: "TQ2m...p4rX",
+  }),
+});
+console.log(await res.json());
+```
+```python
+res = requests.post(
+    "[BASE_URL]/api/v1/evaluate",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={
+        "action": "transfer",
+        "vaultId": "VAULT_ID",
+        "userId": "USER_ID",
+        "asset": "usdt",
+        "amount": "1350.00",
+        "toAddress": "TQ2m...p4rX",
+    },
+)
+print(res.json())
+```
+</CodeGroup>
+
+<Callout kind="alert">
+  Обязателен `asset`; `tokenCode` опционален. Остальные поля тела приведены для примера — точную схему сверьте со [Справочником API](/api-reference) на странице `evaluate`. `vaultId` — это id Vault'а, а не его `code`.
+</Callout>
+
+## Шаг 2. Прочитайте решение
+
+В ответе — вердикт и объяснение:
+
+```json
+{
+  "decision": "block",
+  "reason": "AMOUNT_EXCEEDED",
+  "policyId": "...",
+  "policyCode": "otc-daily-limit",
+  "trace": [
+    { "policyCode": "otc-daily-limit", "policyName": "OTC daily limit", "effect": "block" }
+  ]
+}
+```
+
+- **`decision`** — `allow`, `queue` или `block`.
+- **`reason`** — машиночитаемая причина (например, `AMOUNT_EXCEEDED`).
+- **`trace`** — список сработавших политик с их `effect`.
+
+Как использовать вердикт: `allow` — можно сразу создавать перевод; `queue` — перевод потребует подтверждения, можно предупредить об этом заранее; `block` — показать причину и не дать отправить.
+
+## Шаг 3. Как движок принимает решение
+
+`evaluate` работает по принципу deny-overrides:
+
+1. Собираются все политики пользователя в Vault'е (через членства в группах).
+2. Остаются включённые политики с типом действия, равным запрошенному.
+3. Проверяется применимость (дерево условий; пустое — «применима всегда»).
+4. Если хотя бы одна политика блокирует — итог `block`.
+
+Тот же расчёт выполняется и при создании перевода — но там он сопровождается побочными эффектами (резерв, заявка). `evaluate` же безопасен для повторных вызовов. Подробнее — на странице [Policy Engine](/concepts/policy-engine).
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
+    Как устроены правила, лимиты и исходы.
+  </Card>
+  <Card title="Отправить перевод" icon="send" href="/guides/send-transfer" horizontal>
+    Создать перевод после проверки.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Точная схема `evaluate` и формат ответа.
+  </Card>
+</Columns>

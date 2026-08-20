@@ -1,0 +1,64 @@
+---
+title: Обзор
+description: Практические руководства V3 Custody — пошаговые сценарии с реальными запросами: от создания Vault'а до отчётов и Gas Station.
+---
+
+Раздел **Guides** — это задачные руководства: как сделать конкретную вещь, шаг за шагом и с реальными запросами. Если [Core Concepts](/concepts/overview) объясняет, *как всё устроено*, то здесь — *как этим воспользоваться*.
+
+От [Быстрого старта](/quickstart) гайды отличаются глубиной: quickstart даёт первое касание за пять минут, а каждый гайд разбирает одну задачу целиком — с граничными случаями и проверками.
+
+## Что понадобится
+
+Во всех гайдах используется REST API с Bearer-токеном:
+
+- Базовый URL инстанса — в примерах `[BASE_URL]`.
+- Токен доступа для заголовка `Authorization` (см. [Аутентификацию](/authentication)).
+
+## Что здесь есть
+
+<Columns cols={2}>
+  <Card title="Создать Vault" icon="folder-plus" href="/guides/create-vault" horizontal>
+    Спроектировать оси адресов и завести Vault одним запросом.
+  </Card>
+  <Card title="Сгенерировать адреса" icon="copy-plus" href="/guides/generate-addresses" horizontal>
+    Статические сегменты и пакетное создание.
+  </Card>
+  <Card title="Отправить перевод" icon="send" href="/guides/send-transfer" horizontal>
+    Идемпотентность, резерв и состояния, отмена.
+  </Card>
+  <Card title="Пред-проверить перевод" icon="search-check" href="/guides/evaluate-transfer" horizontal>
+    `evaluate` до создания операции.
+  </Card>
+  <Card title="Обработать поступление" icon="arrow-down-to-line" href="/guides/handle-deposit" horizontal>
+    Вебхук Wallet Service и депозиты.
+  </Card>
+  <Card title="Пригласить команду" icon="user-plus" href="/guides/invite-team" horizontal>
+    Приглашения, роли и группы.
+  </Card>
+  <Card title="Выдать и отозвать доступ" icon="share-2" href="/guides/share-access" horizontal>
+    Адреса, папки и аудит доступа.
+  </Card>
+  <Card title="Отчёты и снапшоты" icon="chart-column" href="/guides/reports-snapshots" horizontal>
+    Выписки, иммутабельные снапшоты и экспорт.
+  </Card>
+  <Card title="Настроить политику (TODO)" icon="sliders-horizontal" href="/guides/configure-policies" horizontal>
+    Черновик — ждёт эндпоинтов записи политик.
+  </Card>
+  <Card title="Пополнить Gas Station (TODO)" icon="fuel" href="/guides/fund-gas-station" horizontal>
+    Черновик — ждёт gas-эндпоинтов.
+  </Card>
+</Columns>
+
+## С чего начать
+
+<Columns cols={2}>
+  <Card title="Быстрый старт" icon="zap" href="/quickstart" horizontal>
+    Первые вызовы к API за несколько минут.
+  </Card>
+  <Card title="Core Concepts" icon="compass" href="/concepts/overview" horizontal>
+    Как устроены Vault, журнал, политики и аппрувалы.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Все эндпоинты, параметры и форматы ответов.
+  </Card>
+</Columns>

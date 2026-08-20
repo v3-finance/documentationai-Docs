@@ -1,0 +1,110 @@
+---
+title: Обработать входящее поступление
+description: Как приходящий платёж превращается в депозит — вебхук Wallet Service (TOPUP), зачисление в журнал и чтение поступления.
+---
+
+Входящие средства приходят ончейн, а Wallet Service следит за адресами и уведомляет V3 Custody вебхуком. Платформа зачисляет сумму в журнал и создаёт депозит. Здесь — как устроен контракт вебхука и как прочитать результат.
+
+<Callout kind="info">
+  Вебхук вызывает **Wallet Service**, а не вы. Со стороны интеграции вы обычно потребляете результат — депозиты, ленту и баланс.
+</Callout>
+
+## Шаг 1. Как приходит поступление
+
+`POST /webhooks/wallet` принимает входящие on-chain события; сейчас обрабатывается только `TOPUP`. Токен резолвится из реестра по contract address, сумма зачисляется на адрес-получатель, и создаётся запись депозита.
+
+Пример тела события:
+
+```json
+{
+  "tx": {
+    "network": "TRON",
+    "asset": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+    "amount": "500.00",
+    "toAddress": "TQ5kohbBSdorGoDBmCGUmDL7RUvNr75mBC",
+    "txHash": "9f2c...e41a"
+  }
+}
+```
+
+`asset` — это contract address токена; по нему платформа находит токен в реестре.
+
+<Callout kind="alert">
+  В демо-режиме вебхук без аутентификации и подписи (в проде планируется HMAC), а строгая схема тела не навязывается (внешний контракт, валидация внутри handler'а). Поля выше приведены для примера — точный контракт сверьте со [Справочником API](/api-reference).
+</Callout>
+
+## Шаг 2. Прочитайте поступление
+
+Когда депозит создан, его детали доступны по id:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID", {
+  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+});
+console.log(await res.json());
+```
+```python
+requests.get(
+    "[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+).json()
+```
+</CodeGroup>
+
+```json
+{
+  "id": "cmr3f41z20001psp7phmyapw3",
+  "amountDecimal": "500.00",
+  "token": "usdt",
+  "toAddress": "TQ5kohbBSdorGoDBmCGUmDL7RUvNr75mBC",
+  "amlStatus": null
+}
+```
+
+`GET /api/v1/vaults/{code}/deposits/{id}` возвращает decimal-сумму, символ токена и адрес-получатель. Поля `amlStatus` / `amlDetails` пока — placeholder до появления automation engine.
+
+## Шаг 3. Найдите поступления в ленте
+
+Поступления попадают в вашу ленту активности и отражаются в балансе:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in" \
+  -H "Authorization: Bearer $V3_TOKEN"
+```
+```javascript
+const res = await fetch(
+  "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in",
+  { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
+);
+console.log(await res.json());
+```
+```python
+requests.get(
+    "[BASE_URL]/api/v1/vaults/acme-otc/history",
+    params={"direction": "in"},
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+).json()
+```
+</CodeGroup>
+
+`GET /api/v1/vaults/{code}/history?direction=in` показывает входящие (депозиты на ваши адреса), а `GET /api/v1/vaults/{code}/balances` отразит выросший `available`. Поступление также автоматически сопоставляется контрагенту, если адрес-отправитель ему принадлежит.
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+    Как зачисление отражается проводками и в балансе.
+  </Card>
+  <Card title="Контрагенты и контекст" icon="handshake" href="/concepts/counterparties" horizontal>
+    Автосопоставление поступления к контрагенту.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Контракт вебхука и схема депозита.
+  </Card>
+</Columns>
