@@ -1,0 +1,72 @@
+---
+title: Активы и сети
+description: Глобальные реестры сетей и токенов — coinType и slug сети, contractAddress и decimals токена, kill-switch.
+---
+
+V3 Custody держит два глобальных реестра — **сети** и **токены**. Они определяют, какие блокчейны и активы платформа понимает; на них ссылаются адреса, политики, отчёты и вебхук.
+
+## Реестр сетей
+
+Сеть описывается двумя ключами:
+
+- **`coinType`** — идентификатор BIP-44/SLIP-0044, уникален (TRON — 195, Ethereum — 60).
+- **`slug`** — on-chain имя сети в нижнем регистре; на него ссылаются `Address.network`, токены и матчинг вебхука.
+
+Сегмент `network` в схеме Vault'а добавляет сети в этот реестр по `coinType` (см. [Vault и деривация](/concepts/vaults)).
+
+- `GET /api/v1/networks` — глобальный реестр (по `coinType` asc). Используется пикером при создании Vault'а и регистрации токенов.
+- `POST /api/v1/networks` — зарегистрировать сеть.
+
+## Реестр токенов
+
+Токен привязан к сети и описывает актив:
+
+```json
+{
+  "id": "cmr3f41z20001psp7phmyapw3",
+  "code": "usdt",
+  "symbol": "USDT",
+  "name": "Tether USD",
+  "networkId": "cmr3f...",
+  "contractAddress": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  "decimals": 6,
+  "enabled": true
+}
+```
+
+- **Native-монета** — одна на сеть; **не-native токены** обязаны иметь `contractAddress` (по нему вебхук верифицирует входящие поступления).
+- **Уникальность**: `code` — глобально, `contractAddress` — в рамках сети.
+
+- `GET /api/v1/tokens` — список токенов.
+- `POST /api/v1/tokens` — зарегистрировать токен (сеть — только из реестра Networks по `networkCode`).
+
+## Обновление и kill-switch
+
+`PATCH /api/v1/tokens/{id}` меняет `symbol`, `name`, `logoUri` и `enabled`. Поля `code`, `contractAddress`, `decimals` неизменяемы.
+
+`enabled=false` — это kill-switch:
+
+- переводы этим токеном отвергаются с `TOKEN_NOT_FOUND`;
+- вебхук игнорирует события по нему;
+- новые политики и Vault'ы не могут на него ссылаться;
+- существующие данные и ledger-счета не трогаются.
+
+## Как это связано с остальным
+
+- **`decimals`** задаёт конвертацию raw ↔ decimal (см. [Суммы и точность](/platform/amounts-precision)).
+- **`contractAddress`** используется вебхуком для резолва токена (см. [Вебхуки](/platform/webhooks)).
+- **`coinType`** определяет путь деривации `m/44/{coinType}/...` (см. [Vault и деривация](/concepts/vaults)).
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Vault и деривация" icon="folder-tree" href="/concepts/vaults" horizontal>
+    coinType, сеть и derivation path.
+  </Card>
+  <Card title="Суммы и точность" icon="calculator" href="/platform/amounts-precision" horizontal>
+    decimals и raw/decimal.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Реестры сетей и токенов.
+  </Card>
+</Columns>

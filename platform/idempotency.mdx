@@ -1,0 +1,91 @@
+---
+title: Идемпотентность
+description: Как безопасно повторять запросы — idempotencyKey на переводах и другие механизмы защиты от дублей.
+---
+
+Сетевые сбои делают ретраи неизбежными. V3 Custody защищает от случайных дублей — прежде всего, у перевода есть `idempotencyKey`, поэтому повтор запроса не задвоит платёж.
+
+## idempotencyKey на переводах
+
+`POST /api/v1/vaults/{code}/transfers` принимает `idempotencyKey`. Повтор запроса с **тем же** ключом вернёт уже созданный перевод, а broadcast не повторяется — в ответе приходит существующая операция (replay).
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+# первый запрос создаёт перевод; повтор с тем же ключом вернёт его же
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+    "toAddress": "TQ2m...p4rX",
+    "token": "usdt",
+    "amount": "1350.00",
+    "idempotencyKey": "payout-2026-03-14-001"
+  }'
+```
+```javascript
+const body = {
+  fromAddressId: "cmr3f41z20001psp7phmyapw3",
+  toAddress: "TQ2m...p4rX",
+  token: "usdt",
+  amount: "1350.00",
+  idempotencyKey: "payout-2026-03-14-001",
+};
+
+// безопасно повторять этот запрос: тот же ключ → тот же перевод
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(body),
+});
+```
+```python
+body = {
+    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+    "toAddress": "TQ2m...p4rX",
+    "token": "usdt",
+    "amount": "1350.00",
+    "idempotencyKey": "payout-2026-03-14-001",
+}
+
+# безопасно повторять: тот же ключ → тот же перевод
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/transfers",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json=body,
+)
+```
+</CodeGroup>
+
+Ключ сохраняется вместе с созданным переводом: второй запрос с тем же ключом коротко замыкается на существующую операцию, а не создаёт и не отправляет её повторно.
+
+## Рекомендации
+
+- **Всегда** передавайте `idempotencyKey` на переводах.
+- Делайте ключ стабильным идентификатором бизнес-операции (id инвойса, выплаты), а не случайным на каждый ретрай, — иначе повтор создаст новый платёж.
+- Один ключ = один платёж; для нового платежа — новый ключ.
+
+## Другие механизмы безопасного повтора
+
+`idempotencyKey` — про переводы. У других изменяющих операций своя защита от дублей и гонок:
+
+- **Гранты на адрес** (`POST /shares`) идемпотентны по субъекту: повторная выдача обновляет или реактивирует грант, а не плодит дубли.
+- **Финальное подтверждение заявки** использует optimistic-lock: если цель изменилась с момента создания, применение не повторяется — заявка помечается `REJECTED` (stale). Подробнее — на странице [Аппрувалы](/concepts/approvals).
+- **Создание адреса** подбирает `pathIndex` с повтором при конкурентном конфликте, поэтому параллельные запросы не займут один путь.
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Отправить перевод" icon="send" href="/guides/send-transfer" horizontal>
+    idempotencyKey и состояния перевода на практике.
+  </Card>
+  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+    Один запрос — один платёж.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Поле idempotencyKey на странице перевода.
+  </Card>
+</Columns>

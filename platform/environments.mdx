@@ -1,0 +1,73 @@
+---
+title: Окружения и базовые URL
+description: Как адресовать свой инстанс V3 Custody — базовый URL, префикс /api/v1 и путь вебхуков; соглашение [BASE_URL] в примерах.
+---
+
+V3 Custody — self-hosted: вы разворачиваете платформу в своём окружении, поэтому базовый URL — это адрес вашего инстанса. Во всей документации он обозначен как `[BASE_URL]`; замените его на реальный адрес.
+
+## Базовый URL
+
+`[BASE_URL]` — корень вашего инстанса. Он подставляется во все примеры (легко найти по квадратным скобкам и заменить одним поиском).
+
+<Callout kind="info">
+  Публичный прод-адрес пока не зафиксирован — [TODO: указать прод-URL]. До этого используйте адрес своего окружения.
+</Callout>
+
+## Префикс API — `/api/v1`
+
+Почти все эндпоинты живут под `[BASE_URL]/api/v1`:
+
+- vault-scoped — `[BASE_URL]/api/v1/vaults/{code}/...` (адреса, балансы, переводы, отчёты и т.д.);
+- топ-левел — `[BASE_URL]/api/v1/evaluate`, `[BASE_URL]/api/v1/policies`, `[BASE_URL]/api/v1/invitations`.
+
+Например:
+
+```
+GET  [BASE_URL]/api/v1/vaults
+GET  [BASE_URL]/api/v1/vaults/acme-otc/balances
+POST [BASE_URL]/api/v1/vaults/acme-otc/transfers
+POST [BASE_URL]/api/v1/evaluate
+```
+
+## Вебхуки — вне `/api/v1`
+
+Входящий вебхук Wallet Service живёт отдельно от префикса API:
+
+- `[BASE_URL]/webhooks/wallet` — сюда Wallet Service присылает события (`TOPUP`). Подробнее — в гайде [Обработать входящее поступление](/guides/handle-deposit).
+
+## Соглашение в примерах
+
+Во всех примерах базовый URL и токен вынесены в переменные окружения:
+
+<CodeGroup tabs="bash,JavaScript,Python">
+```bash
+export V3_BASE_URL="[BASE_URL]"
+export V3_TOKEN="YOUR_API_TOKEN"
+```
+```javascript
+const BASE_URL = process.env.V3_BASE_URL; // [BASE_URL]
+const TOKEN = process.env.V3_TOKEN;
+```
+```python
+import os
+
+BASE_URL = os.environ["V3_BASE_URL"]  # [BASE_URL]
+TOKEN = os.environ["V3_TOKEN"]
+```
+</CodeGroup>
+
+Токен передаётся в заголовке `Authorization: Bearer <токен>` — см. [Аутентификацию](/authentication).
+
+## Что дальше
+
+<Columns cols={2}>
+  <Card title="Быстрый старт" icon="zap" href="/quickstart" horizontal>
+    Первые вызовы к API с этим базовым URL.
+  </Card>
+  <Card title="Аутентификация" icon="lock" href="/authentication" horizontal>
+    Bearer-токен и доступ по приглашению.
+  </Card>
+  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+    Полный список эндпоинтов под /api/v1.
+  </Card>
+</Columns>
