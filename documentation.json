@@ -130,6 +130,11 @@
                 "title": "Пригласить команду",
                 "path": "guides/invite-team",
                 "icon": "user-plus"
+              },
+              {
+                "title": "Выдать и отозвать доступ",
+                "path": "guides/share-access",
+                "icon": "share-2"
               }
             ]
           }
