@@ -135,6 +135,11 @@
                 "title": "Выдать и отозвать доступ",
                 "path": "guides/share-access",
                 "icon": "share-2"
+              },
+              {
+                "title": "Отчёты и снапшоты",
+                "path": "guides/reports-snapshots",
+                "icon": "chart-column"
               }
             ]
           }
