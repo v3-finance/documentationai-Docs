@@ -182,6 +182,11 @@
                 "title": "Модель ошибок",
                 "path": "platform/errors",
                 "icon": "alert-circle"
+              },
+              {
+                "title": "Вебхуки",
+                "path": "platform/webhooks",
+                "icon": "webhook"
               }
             ]
           }
