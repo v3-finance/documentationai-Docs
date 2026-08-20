@@ -40,6 +40,46 @@
             "icon": "layers",
             "pages": [
               {
+                "title": "Обзор",
+                "path": "concepts/overview",
+                "icon": "compass"
+              },
+              {
+                "title": "Vault и деривация",
+                "path": "concepts/vaults",
+                "icon": "folder-tree"
+              },
+              {
+                "title": "Адреса, папки и доступ",
+                "path": "concepts/addresses",
+                "icon": "wallet"
+              },
+              {
+                "title": "Журнал (двойная запись)",
+                "path": "concepts/ledger",
+                "icon": "scale"
+              },
+              {
+                "title": "Policy Engine",
+                "path": "concepts/policy-engine",
+                "icon": "shield-check"
+              },
+              {
+                "title": "Аппрувалы",
+                "path": "concepts/approvals",
+                "icon": "check-check"
+              },
+              {
+                "title": "Контрагенты и контекст",
+                "path": "concepts/counterparties",
+                "icon": "handshake"
+              },
+              {
+                "title": "Gas Station",
+                "path": "concepts/gas-station",
+                "icon": "fuel"
+              },
+              {
                 "title": "Errors",
                 "path": "errors",
                 "icon": "alert-circle"
