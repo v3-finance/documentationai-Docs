@@ -16,24 +16,64 @@ description: Жизненный цикл заявки на подтвержде�
 
 ## Жизненный цикл
 
-У заявки один из четырёх статусов:
+<MermaidDiagram chart={`
+flowchart TD
+  P["PENDING (ждёт голосов)"]
+  P -->|набран порог approve| A["APPROVED (действие применено)"]
+  P -->|reject или stale| R["REJECTED"]
+  P -->|инициатор отменил| C["CANCELLED"]
+`} />
 
-- **`PENDING`** — ждёт голосов. Для перевода сумма всё это время держится в `reserved`.
-- **`APPROVED`** — набран порог, целевое действие применено.
-- **`REJECTED`** — вето одного из одобряющих или устаревание (stale, см. ниже).
-- **`CANCELLED`** — инициатор отменил заявку (для перевода — через `/cancel`).
-
-Для перевода при отклонении или отмене зарезервированная сумма возвращается в `available`.
+| Статус | Что значит | Резерв (для перевода) |
+|--------|-----------|----------------------|
+| `PENDING` | ждёт голосов | держится в `reserved` |
+| `APPROVED` | набран порог, действие применено | списывается |
+| `REJECTED` | вето одобряющего или устаревание (stale) | возвращается в `available` |
+| `CANCELLED` | инициатор отменил (перевод — `/cancel`) | возвращается в `available` |
 
 ## Как голосуют (m-of-n)
 
-Голос подаёт член approver-группы заявки. Инициатор не голосует за собственную заявку (если это не разрешено политикой явно), и у каждого — один голос.
+Голос подаёт член approver-группы заявки. Инициатор не голосует за собственную заявку (если это не разрешено политикой явно), и у каждого — один голос. Например, при пороге **2 из 3** нужно два `approve`; один `reject` — вето, заявка сразу `REJECTED`.
 
-- `POST /api/v1/vaults/{code}/approval-requests/{id}/approvals` — `approve` или `reject` по заявке. Финальный `approve`, добравший порог, **применяет целевое действие в этом же запросе**. В ответе — финальный статус и `resolvedResultId` (или `applyError`, если применить не удалось).
-- `POST /api/v1/vaults/{code}/transfers/{id}/approvals` — отдельная поверхность для переводов (статус `awaiting_approval`): те же правила, средства освобождаются при отклонении.
+Голосование по заявке:
+
+<CodeGroup tabs="cURL,JavaScript,Python">
+```bash
+curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/approval-requests/REQUEST_ID/approvals" \
+  -H "Authorization: Bearer $V3_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "decision": "approve" }'
+```
+```javascript
+await fetch("[BASE_URL]/api/v1/vaults/acme-otc/approval-requests/REQUEST_ID/approvals", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.V3_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ decision: "approve" }),
+});
+```
+```python
+requests.post(
+    "[BASE_URL]/api/v1/vaults/acme-otc/approval-requests/REQUEST_ID/approvals",
+    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+    json={"decision": "approve"},
+)
+```
+</CodeGroup>
+
+Финальный `approve`, добравший порог, **применяет целевое действие в этом же запросе**. В ответе — финальный статус и `resolvedResultId` (или `applyError`, если применить не удалось).
+
+Есть две поверхности голосования:
+
+| Поверхность | Для чего | Статус ожидания |
+|-------------|----------|-----------------|
+| `approval-requests/{id}/approvals` | любые gated-действия | `PENDING` |
+| `transfers/{id}/approvals` | только переводы | `awaiting_approval` |
 
 <Callout kind="alert">
-  `reject` — это вето: одного отклонения достаточно, чтобы заявка стала `REJECTED`. Порог набирается только из `approve`.
+  `reject` — это вето: одного отклонения достаточно, чтобы заявка стала `REJECTED`. Порог набирается только из `approve`. Имя поля голоса (здесь — `decision`) сверьте со [Справочником API](/api-reference).
 </Callout>
 
 ## Снапшот и защита от гонок
@@ -51,16 +91,43 @@ description: Жизненный цикл заявки на подтвержде�
 
 ## Где смотреть заявки
 
-- `GET /api/v1/vaults/{code}/approval-requests` — заявки, видимые вам (как инициатору, одобряющему или админу). Фильтры: `status` (`PENDING|APPROVED|REJECTED|CANCELLED`), `action`, `mine=true` (я инициатор), `pendingMine=true` (ждут моего голоса), `from`/`to`, `resolvedFrom`/`resolvedTo`, `initiatorId`, `approverId`, `decisionPolicyId`.
+- `GET /api/v1/vaults/{code}/approval-requests` — заявки, видимые вам (как инициатору, одобряющему или админу).
 - `GET /api/v1/vaults/{code}/approval-requests/{id}` — детали одной заявки.
+
+Фильтры ленты:
+
+| Фильтр | Что фильтрует |
+|--------|---------------|
+| `status` | `PENDING` / `APPROVED` / `REJECTED` / `CANCELLED` |
+| `action` | тип действия |
+| `mine=true` | где я инициатор |
+| `pendingMine=true` | что ждёт моего голоса |
+| `from` / `to` | окно по времени создания |
+| `resolvedFrom` / `resolvedTo` | окно по времени разрешения |
+| `initiatorId` / `approverId` / `decisionPolicyId` | по участникам и политике |
 
 <Callout kind="tip">
   `pendingMine=true` отвечает на вопрос «что ждёт именно моего голоса» — удобно для дашборда одобряющего.
 </Callout>
 
+## Термины
+
+<Expandable title="Словарь аппрувалов">
+- **Заявка (approval request)** — отложенное действие, ждущее подтверждений.
+- **approver-группа** — кто вправе голосовать по заявке.
+- **`threshold`** — сколько `approve` нужно (m из n).
+- **veto** — один `reject` отклоняет заявку.
+- **stale** — цель изменилась с момента создания → заявка `REJECTED`, действие не применяется.
+- **Композитная заявка** — цепочка шагов, каждый под своей политикой, как единое целое.
+- **`decisionPolicyId`** — политика, которая поставила действие в очередь (в снапшоте заявки).
+</Expandable>
+
 ## Что дальше
 
 <Columns cols={2}>
+  <Card title="Отправить перевод" icon="send" href="/guides/send-transfer" horizontal>
+    approve и cancel перевода на практике.
+  </Card>
   <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
     Кто и почему ставит действие в очередь.
   </Card>
