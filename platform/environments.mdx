@@ -5,6 +5,16 @@ description: Как адресовать свой инстанс V3 Custody — 
 
 V3 Custody — self-hosted: вы разворачиваете платформу в своём окружении, поэтому базовый URL — это адрес вашего инстанса. Во всей документации он обозначен как `[BASE_URL]`; замените его на реальный адрес.
 
+Структура адресов инстанса:
+
+<MermaidDiagram chart={`
+flowchart TD
+  BU["[BASE_URL] — корень инстанса"] --> API["/api/v1 — основной префикс"]
+  BU --> WH["/webhooks/wallet — вне /api/v1"]
+  API --> VS["/vaults/{code}/... — vault-scoped"]
+  API --> TL["/evaluate, /policies, /invitations — топ-левел"]
+`} />
+
 ## Базовый URL
 
 `[BASE_URL]` — корень вашего инстанса. Он подставляется во все примеры (легко найти по квадратным скобкам и заменить одним поиском).
@@ -13,14 +23,17 @@ V3 Custody — self-hosted: вы разворачиваете платформу
   Публичный прод-адрес пока не зафиксирован — [TODO: указать прод-URL]. До этого используйте адрес своего окружения.
 </Callout>
 
-## Префикс API — `/api/v1`
+## Области адресации
 
-Почти все эндпоинты живут под `[BASE_URL]/api/v1`:
+Почти все эндпоинты живут под `/api/v1`; вебхуки — исключение:
 
-- vault-scoped — `[BASE_URL]/api/v1/vaults/{code}/...` (адреса, балансы, переводы, отчёты и т.д.);
-- топ-левел — `[BASE_URL]/api/v1/evaluate`, `[BASE_URL]/api/v1/policies`, `[BASE_URL]/api/v1/invitations`.
+| Область | Шаблон пути | Примеры |
+|---------|-------------|---------|
+| vault-scoped | `[BASE_URL]/api/v1/vaults/{code}/...` | `balances`, `transfers`, `reports`, `addresses` |
+| топ-левел | `[BASE_URL]/api/v1/...` | `evaluate`, `policies`, `invitations` |
+| вебхуки | `[BASE_URL]/webhooks/...` | `webhooks/wallet` (`TOPUP`) |
 
-Например:
+Примеры путей:
 
 ```
 GET  [BASE_URL]/api/v1/vaults
@@ -31,9 +44,7 @@ POST [BASE_URL]/api/v1/evaluate
 
 ## Вебхуки — вне `/api/v1`
 
-Входящий вебхук Wallet Service живёт отдельно от префикса API:
-
-- `[BASE_URL]/webhooks/wallet` — сюда Wallet Service присылает события (`TOPUP`). Подробнее — в гайде [Обработать входящее поступление](/guides/handle-deposit).
+Входящий вебхук Wallet Service живёт отдельно от префикса API: `[BASE_URL]/webhooks/wallet` — сюда Wallet Service присылает события (`TOPUP`). Подробнее — в гайде [Обработать входящее поступление](/guides/handle-deposit).
 
 ## Соглашение в примерах
 
@@ -58,6 +69,25 @@ TOKEN = os.environ["V3_TOKEN"]
 
 Токен передаётся в заголовке `Authorization: Bearer <токен>` — см. [Аутентификацию](/authentication).
 
+<Expandable title="Глоссарий">
+  - **self-hosted** — платформа развёрнута в вашем окружении; базовый URL = адрес инстанса.
+  - **[BASE_URL]** — плейсхолдер корня инстанса в примерах.
+  - **/api/v1** — основной префикс версии API.
+  - **vault-scoped** — эндпоинты под конкретный Vault (`/vaults/{code}/...`).
+  - **топ-левел** — эндпоинты вне vault-scope (`/evaluate`, `/policies`, `/invitations`).
+  - **{code}** — адресация Vault'а по его `code` в пути (не по id).
+</Expandable>
+
+## Частые ошибки
+
+| Симптом | Причина |
+|---------|---------|
+| `404` на всех вызовах | забыт префикс `/api/v1` |
+| вебхук не доходит | его шлут под `/api/v1` — он вне префикса, на `/webhooks/wallet` |
+| Vault не находится в пути | в пути ожидается `code`, а передан id |
+| в запрос ушёл `[BASE_URL]` | плейсхолдер не заменён на адрес инстанса |
+| двойной `//` в URL | `BASE_URL` с завершающим слэшем + путь с ведущим слэшем |
+
 ## Что дальше
 
 <Columns cols={2}>
@@ -66,6 +96,9 @@ TOKEN = os.environ["V3_TOKEN"]
   </Card>
   <Card title="Аутентификация" icon="lock" href="/authentication" horizontal>
     Bearer-токен и доступ по приглашению.
+  </Card>
+  <Card title="Вебхуки" icon="webhook" href="/platform/webhooks" horizontal>
+    Входящие события и их обработка.
   </Card>
   <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
     Полный список эндпоинтов под /api/v1.

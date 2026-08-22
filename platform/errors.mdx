@@ -5,6 +5,19 @@ description: Структура ответов с ошибками в V3 Custody
 
 API возвращает стандартные HTTP-статусы с единым JSON-конвертом ошибки. Ошибки валидации несут детали по полям, доменные ошибки — машиночитаемый код.
 
+Как ветвить логику по ответу:
+
+<MermaidDiagram chart={`
+flowchart TD
+  RESP["Ответ API"] --> OK{"res.ok?"}
+  OK -->|да| DONE["Успех"]
+  OK -->|нет| CODE{"HTTP-статус"}
+  CODE -->|400 / 422| FIX["Исправить по details — не повторять вслепую"]
+  CODE -->|401| AUTH["Проверить токен / сессию"]
+  CODE -->|403| POL["Смотреть reason / trace (Policy Engine)"]
+  CODE -->|5xx / сеть| RETRY["Ретрай с backoff; перевод — тот же idempotencyKey"]
+`} />
+
 ## Конверт ошибки
 
 ```json
@@ -82,6 +95,24 @@ if not res.ok:
 - **`400` / `422`** — не повторяйте вслепую: исправьте запрос по `details`.
 - **`403`** — это решение Policy Engine. Смотрите `reason` и `trace`, чтобы понять, какая политика заблокировала (см. [Policy Engine](/concepts/policy-engine)).
 
+<Expandable title="Глоссарий">
+  - **конверт ошибки** — единый JSON-формат: `error` / `message` / `code` / `details`.
+  - **details** — ошибки по полям при валидации `400` (`field` + `message`).
+  - **машиночитаемый код** — доменный код (`INSUFFICIENT_BALANCE` и т.п.) для ветвления логики.
+  - **reason / trace** — код причины и список сработавших политик в решении Policy Engine.
+  - **`202`** — запрос принят и поставлен в очередь (создана заявка на подтверждение).
+</Expandable>
+
+## Частые ошибки
+
+| Симптом | Причина |
+|---------|---------|
+| ветвление по тексту | `message` — человекочитаемый; ветвите по `code` / машиночитаемому коду |
+| `403` принят за проблему аутентификации | `403` — решение политики (deny), а не токена; аутентификация — это `401` |
+| `202` принят за финальный успех | это очередь: создана заявка, операция ещё не финальна |
+| `5xx` не повторяется | повторяйте с backoff (перевод — с тем же `idempotencyKey`) |
+| код ищется в одном месте | расположение кода различается по эндпоинтам (`code` / `error.code` / `reason`) |
+
 ## Что дальше
 
 <Columns cols={2}>
@@ -90,6 +121,9 @@ if not res.ok:
   </Card>
   <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
     reason и trace при block.
+  </Card>
+  <Card title="Пагинация и фильтры" icon="chevrons-right" href="/platform/pagination-filtering" horizontal>
+    Ошибки валидации параметров списков.
   </Card>
   <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
     Ответы с ошибками по каждому эндпоинту.
