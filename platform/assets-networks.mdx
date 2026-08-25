@@ -1,32 +1,33 @@
 ---
 title: Активы и сети
-description: Глобальные реестры сетей и токенов — coinType и slug сети, contractAddress и decimals токена, kill-switch.
+description: >-
+  Глобальные реестры сетей и токенов - coinType и slug сети, contractAddress и
+  decimals токена, kill-switch.
 ---
-
-V3 Custody держит два глобальных реестра — **сети** и **токены**. Они определяют, какие блокчейны и активы платформа понимает; на них ссылаются адреса, политики, отчёты и вебхук.
+V3 Custody держит два глобальных реестра - **сети** и **токены**. Они определяют, какие блокчейны и активы платформа понимает; на них ссылаются адреса, политики, отчёты и вебхук.
 
 <MermaidDiagram chart={`
 flowchart TD
-  NET["Реестр сетей (coinType, slug)"] --> TOK["Реестр токенов (привязан к сети)"]
-  TOK --> ADDR["Адреса (Address.network)"]
-  TOK --> POL["Политики"]
-  TOK --> REP["Отчёты"]
-  TOK --> WH["Вебхук (резолв по contractAddress)"]
+NET["Реестр сетей (coinType, slug)"] --> TOK["Реестр токенов (привязан к сети)"]
+TOK --> ADDR["Адреса (Address.network)"]
+TOK --> POL["Политики"]
+TOK --> REP["Отчёты"]
+TOK --> WH["Вебхук (резолв по contractAddress)"]
 `} />
 
 ## Реестр сетей
 
 Сеть описывается двумя ключами:
 
-| Ключ | Значение |
-|------|----------|
-| `coinType` | идентификатор BIP-44/SLIP-0044, уникален (TRON — 195, Ethereum — 60) |
-| `slug` | on-chain имя сети в нижнем регистре; ссылки `Address.network`, токены, матчинг вебхука |
+| Ключ       | Значение                                                                               |
+| ---------- | -------------------------------------------------------------------------------------- |
+| `coinType` | идентификатор BIP-44/SLIP-0044, уникален (TRON - 195, Ethereum - 60)                   |
+| `slug`     | on-chain имя сети в нижнем регистре; ссылки `Address.network`, токены, матчинг вебхука |
 
 Сегмент `network` в схеме Vault'а добавляет сети в этот реестр по `coinType` (см. [Vault и деривация](/concepts/vaults)).
 
-- `GET /api/v1/networks` — глобальный реестр (по `coinType` asc). Используется пикером при создании Vault'а и регистрации токенов.
-- `POST /api/v1/networks` — зарегистрировать сеть.
+- `GET /api/v1/networks` - глобальный реестр (по `coinType` asc). Используется пикером при создании Vault'а и регистрации токенов.
+- `POST /api/v1/networks` - зарегистрировать сеть.
 
 ## Реестр токенов
 
@@ -45,33 +46,32 @@ flowchart TD
 }
 ```
 
-| Поле | Значение |
-|------|----------|
-| `code` | глобально уникальный код токена (неизменяем) |
-| `symbol` / `name` | отображаемые, изменяемые |
-| `networkId` | привязка к сети |
+| Поле              | Значение                                                                     |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `code`            | глобально уникальный код токена (неизменяем)                                 |
+| `symbol` / `name` | отображаемые, изменяемые                                                     |
+| `networkId`       | привязка к сети                                                              |
 | `contractAddress` | адрес контракта (обязателен у не-native; уникален в рамках сети; неизменяем) |
-| `decimals` | масштаб токена (неизменяем) |
-| `enabled` | kill-switch |
+| `decimals`        | масштаб токена (неизменяем)                                                  |
+| `enabled`         | kill-switch                                                                  |
 
-- **Native-монета** — одна на сеть; **не-native токены** обязаны иметь `contractAddress` (по нему вебхук верифицирует входящие поступления).
-- **Уникальность**: `code` — глобально, `contractAddress` — в рамках сети.
-
-- `GET /api/v1/tokens` — список токенов.
-- `POST /api/v1/tokens` — зарегистрировать токен (сеть — только из реестра Networks по `networkCode`).
+- **Native-монета** - одна на сеть; **не-native токены** обязаны иметь `contractAddress` (по нему вебхук верифицирует входящие поступления).
+- **Уникальность**: `code` - глобально, `contractAddress` - в рамках сети.
+- `GET /api/v1/tokens` - список токенов.
+- `POST /api/v1/tokens` - зарегистрировать токен (сеть - только из реестра Networks по `networkCode`).
 
 ## Обновление и kill-switch
 
 `PATCH /api/v1/tokens/{id}` меняет `symbol`, `name`, `logoUri` и `enabled`. Поля `code`, `contractAddress`, `decimals` неизменяемы.
 
-`enabled=false` — это kill-switch:
+`enabled=false` - это kill-switch:
 
-| При `enabled=false` | Поведение |
-|---------------------|-----------|
-| переводы этим токеном | отвергаются с `TOKEN_NOT_FOUND` |
-| вебхук | игнорирует события по нему |
-| новые политики и Vault'ы | не могут на него ссылаться |
-| существующие данные и ledger-счета | не трогаются |
+| При `enabled=false`                | Поведение                       |
+| ---------------------------------- | ------------------------------- |
+| переводы этим токеном              | отвергаются с `TOKEN_NOT_FOUND` |
+| вебхук                             | игнорирует события по нему      |
+| новые политики и Vault'ы           | не могут на него ссылаться      |
+| существующие данные и ledger-счета | не трогаются                    |
 
 ## Как это связано с остальным
 
@@ -79,38 +79,42 @@ flowchart TD
 - **`contractAddress`** используется вебхуком для резолва токена (см. [Вебхуки](/platform/webhooks)).
 - **`coinType`** определяет путь деривации `m/44/{coinType}/...` (см. [Vault и деривация](/concepts/vaults)).
 
-<Expandable title="Глоссарий">
-  - **coinType** — идентификатор сети по SLIP-0044 (BIP-44).
-  - **slug** — on-chain имя сети в нижнем регистре.
-  - **native-монета** — базовая монета сети (одна на сеть).
-  - **contractAddress** — адрес контракта не-native токена; по нему резолвится токен в вебхуке.
-  - **decimals** — масштаб токена для raw ↔ decimal.
-  - **kill-switch (`enabled=false`)** — отключение токена без удаления данных.
+<Expandable title="Глоссарий" default-open="false">
+  * **coinType** - идентификатор сети по SLIP-0044 (BIP-44).
+  * **slug** - on-chain имя сети в нижнем регистре.
+  * **native-монета** - базовая монета сети (одна на сеть).
+  * **contractAddress** - адрес контракта не-native токена; по нему резолвится токен в вебхуке.
+  * **decimals** - масштаб токена для raw ↔ decimal.
+  * **kill-switch (****`enabled=false`****)** - отключение токена без удаления данных.
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| токен не регистрируется | сеть не из реестра Networks — нужен существующий `networkCode` |
-| не-native без `contractAddress` | для не-native токенов он обязателен |
-| дубль `contractAddress` | уникален в рамках сети |
-| перевод `TOKEN_NOT_FOUND` | токен отключён kill-switch'ом (`enabled=false`) |
-| хотят сменить `decimals`/`code` | неизменяемы — только пересоздание токена |
+| Симптом                         | Причина                                                        |
+| ------------------------------- | -------------------------------------------------------------- |
+| токен не регистрируется         | сеть не из реестра Networks - нужен существующий `networkCode` |
+| не-native без `contractAddress` | для не-native токенов он обязателен                            |
+| дубль `contractAddress`         | уникален в рамках сети                                         |
+| перевод `TOKEN_NOT_FOUND`       | токен отключён kill-switch'ом (`enabled=false`)                |
+| хотят сменить `decimals`/`code` | неизменяемы - только пересоздание токена                       |
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Vault и деривация" icon="folder-tree" href="/concepts/vaults" horizontal>
+<Columns cols="2">
+  <Card title="Vault и деривация" href="/concepts/vaults" icon="folder-tree" horizontal="false">
     coinType, сеть и derivation path.
   </Card>
-  <Card title="Суммы и точность" icon="calculator" href="/platform/amounts-precision" horizontal>
+
+  <Card title="Суммы и точность" href="/platform/amounts-precision" icon="calculator" horizontal="false">
     decimals и raw/decimal.
   </Card>
-  <Card title="Вебхуки" icon="webhook" href="/platform/webhooks" horizontal>
+
+  <Card title="Вебхуки" href="/platform/webhooks" icon="webhook" horizontal="false">
     Резолв токена по contractAddress.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Реестры сетей и токенов.
   </Card>
 </Columns>
+

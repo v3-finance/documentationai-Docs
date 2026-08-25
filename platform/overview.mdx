@@ -1,57 +1,69 @@
 ---
 title: Обзор
-description: Сквозные технические темы платформы V3 Custody — окружения, точность сумм, пагинация, идемпотентность, ошибки, вебхуки и модель доступа.
+description: >-
+  Сквозные технические темы платформы V3 Custody - окружения, точность сумм,
+  пагинация, идемпотентность, ошибки, вебхуки и модель доступа.
 ---
-
-Раздел **Platform** — это сквозные технические темы, общие для всего API: как адресовать инстанс, как читать суммы, как листать и фильтровать, как обрабатывать ошибки и вебхуки. На эти темы опираются и [гайды](/guides/overview), и [концепты](/concepts/overview).
+Раздел **Platform** - это сквозные технические темы, общие для всего API: как адресовать инстанс, как читать суммы, как листать и фильтровать, как обрабатывать ошибки и вебхуки. На эти темы опираются и [гайды](/guides/overview), и [концепты](/concepts/overview).
 
 ## Что понадобится
 
-- Базовый URL инстанса — в примерах `[BASE_URL]`.
+- Базовый URL инстанса - в примерах `[BASE_URL]`.
 - Токен доступа для заголовка `Authorization` (см. [Аутентификацию](/authentication)).
 
 ## Что здесь есть
 
-<Columns cols={2}>
-  <Card title="Окружения и базовые URL" icon="server" href="/platform/environments" horizontal>
+<Columns cols="2">
+  <Card title="Окружения и базовые URL" href="/platform/environments" icon="server" horizontal="false">
     Как адресовать свой инстанс; префикс /api/v1.
   </Card>
-  <Card title="Аутентификация детально" icon="key-round" href="/platform/authentication" horizontal>
+
+  <Card title="Аутентификация детально" href="/platform/authentication" icon="key-round" horizontal="false">
     magic-link, сессия, Bearer и cookie.
   </Card>
-  <Card title="Суммы и точность" icon="calculator" href="/platform/amounts-precision" horizontal>
+
+  <Card title="Суммы и точность" href="/platform/amounts-precision" icon="calculator" horizontal="false">
     raw-единицы и десятичное представление.
   </Card>
-  <Card title="Пагинация и фильтры" icon="chevrons-right" href="/platform/pagination-filtering" horizontal>
+
+  <Card title="Пагинация и фильтры" href="/platform/pagination-filtering" icon="chevrons-right" horizontal="false">
     keyset-пагинация и общие фильтры.
   </Card>
-  <Card title="Идемпотентность" icon="repeat" href="/platform/idempotency" horizontal>
+
+  <Card title="Идемпотентность" href="/platform/idempotency" icon="repeat" horizontal="false">
     Безопасные ретраи через idempotencyKey.
   </Card>
-  <Card title="Модель ошибок" icon="alert-circle" href="/platform/errors" horizontal>
+
+  <Card title="Модель ошибок" href="/platform/errors" icon="alert-circle" horizontal="false">
     Структура ответов с ошибками и коды.
   </Card>
-  <Card title="Вебхуки" icon="webhook" href="/platform/webhooks" horizontal>
+
+  <Card title="Вебхуки" href="/platform/webhooks" icon="webhook" horizontal="false">
     Входящие события Wallet Service.
   </Card>
-  <Card title="Модель доступа" icon="shield" href="/platform/access-model" horizontal>
+
+  <Card title="Модель доступа" href="/platform/access-model" icon="shield" horizontal="false">
     Изоляция видимости и права через группы.
   </Card>
-  <Card title="Активы и сети" icon="coins" href="/platform/assets-networks" horizontal>
+
+  <Card title="Активы и сети" href="/platform/assets-networks" icon="coins" horizontal="false">
     Реестр Network и токены по contract address.
   </Card>
 </Columns>
 
 ## Смежные разделы
 
-<Columns cols={2}>
-  <Card title="Быстрый старт" icon="zap" href="/quickstart" horizontal>
+<Columns cols="2">
+  <Card title="Быстрый старт" href="/quickstart" icon="zap" horizontal="false">
     Первые вызовы к API за несколько минут.
   </Card>
-  <Card title="Guides" icon="list-checks" href="/guides/overview" horizontal>
+
+  <Card title="Guides" href="/guides/overview" icon="list-checks" horizontal="false">
     Пошаговые сценарии с реальными запросами.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Все эндпоинты, параметры и форматы ответов.
   </Card>
 </Columns>
+

@@ -1,21 +1,22 @@
 ---
 title: Модель ошибок
-description: Структура ответов с ошибками в V3 Custody — конверт error/message/code/details, HTTP-статусы и машиночитаемые коды.
+description: >-
+  Структура ответов с ошибками в V3 Custody - конверт
+  error/message/code/details, HTTP-статусы и машиночитаемые коды.
 ---
-
-API возвращает стандартные HTTP-статусы с единым JSON-конвертом ошибки. Ошибки валидации несут детали по полям, доменные ошибки — машиночитаемый код.
+API возвращает стандартные HTTP-статусы с единым JSON-конвертом ошибки. Ошибки валидации несут детали по полям, доменные ошибки - машиночитаемый код.
 
 Как ветвить логику по ответу:
 
 <MermaidDiagram chart={`
 flowchart TD
-  RESP["Ответ API"] --> OK{"res.ok?"}
-  OK -->|да| DONE["Успех"]
-  OK -->|нет| CODE{"HTTP-статус"}
-  CODE -->|400 / 422| FIX["Исправить по details — не повторять вслепую"]
-  CODE -->|401| AUTH["Проверить токен / сессию"]
-  CODE -->|403| POL["Смотреть reason / trace (Policy Engine)"]
-  CODE -->|5xx / сеть| RETRY["Ретрай с backoff; перевод — тот же idempotencyKey"]
+RESP["Ответ API"] --> OK{"res.ok?"}
+OK -->|да| DONE["Успех"]
+OK -->|нет| CODE{"HTTP-статус"}
+CODE -->|400 / 422| FIX["Исправить по details — не повторять вслепую"]
+CODE -->|401| AUTH["Проверить токен / сессию"]
+CODE -->|403| POL["Смотреть reason / trace (Policy Engine)"]
+CODE -->|5xx / сеть| RETRY["Ретрай с backoff; перевод — тот же idempotencyKey"]
 `} />
 
 ## Конверт ошибки
@@ -31,101 +32,106 @@ flowchart TD
 }
 ```
 
-- **`error`** — краткое имя ошибки (`Bad Request`, `Unauthorized`, `Not Found`…).
-- **`message`** — человекочитаемое описание.
-- **`code`** — HTTP-статус числом.
-- **`details`** — ошибки по полям (для валидации `400`): `field` + `message`.
+- **`error`** - краткое имя ошибки (`Bad Request`, `Unauthorized`, `Not Found`…).
+- **`message`** - человекочитаемое описание.
+- **`code`** - HTTP-статус числом.
+- **`details`** - ошибки по полям (для валидации `400`): `field` + `message`.
 
 ## HTTP-статусы
 
-| Статус | Значение |
-|--------|----------|
-| `200` / `201` | Успех |
-| `202` | Поставлено в очередь — создана заявка на подтверждение |
-| `400` | Некорректный запрос (валидация; см. `details`) |
-| `401` | Не аутентифицирован |
-| `403` | Запрещено политикой (deny/block; default-deny) |
-| `404` | Не найдено |
-| `410` | Ресурс больше не действителен (например, отозванное/принятое приглашение) |
-| `422` | Невозможно обработать |
+| Статус        | Значение                                                                  |
+| ------------- | ------------------------------------------------------------------------- |
+| `200` / `201` | Успех                                                                     |
+| `202`         | Поставлено в очередь - создана заявка на подтверждение                    |
+| `400`         | Некорректный запрос (валидация; см. `details`)                            |
+| `401`         | Не аутентифицирован                                                       |
+| `403`         | Запрещено политикой (deny/block; default-deny)                            |
+| `404`         | Не найдено                                                                |
+| `410`         | Ресурс больше не действителен (например, отозванное/принятое приглашение) |
+| `422`         | Невозможно обработать                                                     |
 
 ## Машиночитаемые коды
 
-У доменных ошибок помимо HTTP-статуса есть машиночитаемый код — по нему удобно ветвить логику:
+У доменных ошибок помимо HTTP-статуса есть машиночитаемый код - по нему удобно ветвить логику:
 
-| Код | Когда |
-|-----|-------|
-| `INSUFFICIENT_BALANCE` | Недостаточно средств для перевода |
-| `AMOUNT_EXCEEDED` | Превышен лимит политики |
-| `REPORT_PERIOD_TOO_LARGE` | Результат отчёта слишком большой — сузьте фильтры |
-| `REPORT_UNSUPPORTED_FORMAT` | Формат экспорта пока не поддержан (`xlsx`/`pdf`) |
+| Код                         | Когда                                             |
+| --------------------------- | ------------------------------------------------- |
+| `INSUFFICIENT_BALANCE`      | Недостаточно средств для перевода                 |
+| `AMOUNT_EXCEEDED`           | Превышен лимит политики                           |
+| `REPORT_PERIOD_TOO_LARGE`   | Результат отчёта слишком большой - сузьте фильтры |
+| `REPORT_UNSUPPORTED_FORMAT` | Формат экспорта пока не поддержан (`xlsx`/`pdf`)  |
 
-<Callout kind="alert">
-  Расположение машиночитаемого кода различается по эндпоинтам: где-то это строковый `code`, где-то вложенный `error.code`, а у Policy Engine — `reason` в решении (с `trace` сработавших политик). Точную форму смотрите в [Справочнике API](/api-reference).
+<Callout kind="alert" collapsed="false">
+  Расположение машиночитаемого кода различается по эндпоинтам: где-то это строковый `code`, где-то вложенный `error.code`, а у Policy Engine - `reason` в решении (с `trace` сработавших политик). Точную форму смотрите в [Справочнике API](/api-reference).
 </Callout>
 
 ## Обработка ошибок
 
 Проверяйте статус ответа и читайте `code`/`details`:
 
-<CodeGroup tabs="JavaScript,Python">
-```javascript
-const res = await fetch(url, { headers });
-if (!res.ok) {
-  const err = await res.json();
-  console.error(`${err.code} ${err.error}: ${err.message}`);
-  for (const d of err.details ?? []) {
-    console.error(`  ${d.field}: ${d.message}`);
+<CodeGroup show-lines="true">
+  ```javascript
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const err = await res.json();
+    console.error(`${err.code} ${err.error}: ${err.message}`);
+    for (const d of err.details ?? []) {
+      console.error(`  ${d.field}: ${d.message}`);
+    }
   }
-}
-```
-```python
-res = requests.post(url, headers=headers, json=body)
-if not res.ok:
-    err = res.json()
-    print(f"{err['code']} {err['error']}: {err['message']}")
-    for d in err.get("details", []):
-        print(f"  {d['field']}: {d['message']}")
-```
+  ```
+
+  ```python
+  res = requests.post(url, headers=headers, json=body)
+  if not res.ok:
+      err = res.json()
+      print(f"{err['code']} {err['error']}: {err['message']}")
+      for d in err.get("details", []):
+          print(f"  {d['field']}: {d['message']}")
+  ```
 </CodeGroup>
 
 ## Когда повторять запрос
 
-- **5xx и сетевые сбои** — повторяйте с экспоненциальной задержкой. Переводы повторяйте с тем же `idempotencyKey`, чтобы не задвоить платёж (см. [Идемпотентность](/platform/idempotency)).
-- **`400` / `422`** — не повторяйте вслепую: исправьте запрос по `details`.
-- **`403`** — это решение Policy Engine. Смотрите `reason` и `trace`, чтобы понять, какая политика заблокировала (см. [Policy Engine](/concepts/policy-engine)).
+- **5xx и сетевые сбои** - повторяйте с экспоненциальной задержкой. Переводы повторяйте с тем же `idempotencyKey`, чтобы не задвоить платёж (см. [Идемпотентность](/platform/idempotency)).
+- **`400`****&#x20;/&#x20;****`422`** - не повторяйте вслепую: исправьте запрос по `details`.
+- **`403`** - это решение Policy Engine. Смотрите `reason` и `trace`, чтобы понять, какая политика заблокировала (см. [Policy Engine](/concepts/policy-engine)).
 
-<Expandable title="Глоссарий">
-  - **конверт ошибки** — единый JSON-формат: `error` / `message` / `code` / `details`.
-  - **details** — ошибки по полям при валидации `400` (`field` + `message`).
-  - **машиночитаемый код** — доменный код (`INSUFFICIENT_BALANCE` и т.п.) для ветвления логики.
-  - **reason / trace** — код причины и список сработавших политик в решении Policy Engine.
-  - **`202`** — запрос принят и поставлен в очередь (создана заявка на подтверждение).
+<Expandable title="Глоссарий" default-open="false">
+  * **конверт ошибки** - единый JSON-формат: `error` / `message` / `code` / `details`.
+  * **details** - ошибки по полям при валидации `400` (`field` + `message`).
+  * **машиночитаемый код** - доменный код (`INSUFFICIENT_BALANCE` и т.п.) для ветвления логики.
+  * **reason / trace** - код причины и список сработавших политик в решении Policy Engine.
+  * **`202`** - запрос принят и поставлен в очередь (создана заявка на подтверждение).
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| ветвление по тексту | `message` — человекочитаемый; ветвите по `code` / машиночитаемому коду |
-| `403` принят за проблему аутентификации | `403` — решение политики (deny), а не токена; аутентификация — это `401` |
-| `202` принят за финальный успех | это очередь: создана заявка, операция ещё не финальна |
-| `5xx` не повторяется | повторяйте с backoff (перевод — с тем же `idempotencyKey`) |
-| код ищется в одном месте | расположение кода различается по эндпоинтам (`code` / `error.code` / `reason`) |
+| Симптом                                 | Причина                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| ветвление по тексту                     | `message` - человекочитаемый; ветвите по `code` / машиночитаемому коду         |
+| `403` принят за проблему аутентификации | `403` - решение политики (deny), а не токена; аутентификация - это `401`       |
+| `202` принят за финальный успех         | это очередь: создана заявка, операция ещё не финальна                          |
+| `5xx` не повторяется                    | повторяйте с backoff (перевод - с тем же `idempotencyKey`)                     |
+| код ищется в одном месте                | расположение кода различается по эндпоинтам (`code` / `error.code` / `reason`) |
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Идемпотентность" icon="repeat" href="/platform/idempotency" horizontal>
+<Columns cols="2">
+  <Card title="Идемпотентность" href="/platform/idempotency" icon="repeat" horizontal="false">
     Безопасные ретраи переводов.
   </Card>
-  <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
+
+  <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
     reason и trace при block.
   </Card>
-  <Card title="Пагинация и фильтры" icon="chevrons-right" href="/platform/pagination-filtering" horizontal>
+
+  <Card title="Пагинация и фильтры" href="/platform/pagination-filtering" icon="chevrons-right" horizontal="false">
     Ошибки валидации параметров списков.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Ответы с ошибками по каждому эндпоинту.
   </Card>
 </Columns>
+

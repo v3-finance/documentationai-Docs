@@ -1,71 +1,74 @@
 ---
 title: Идемпотентность
-description: Как безопасно повторять запросы — idempotencyKey на переводах и другие механизмы защиты от дублей.
+description: >-
+  Как безопасно повторять запросы - idempotencyKey на переводах и другие
+  механизмы защиты от дублей.
 ---
-
-Сетевые сбои делают ретраи неизбежными. V3 Custody защищает от случайных дублей — прежде всего, у перевода есть `idempotencyKey`, поэтому повтор запроса не задвоит платёж.
+Сетевые сбои делают ретраи неизбежными. V3 Custody защищает от случайных дублей - прежде всего, у перевода есть `idempotencyKey`, поэтому повтор запроса не задвоит платёж.
 
 <MermaidDiagram chart={`
 flowchart TD
-  REQ["POST /transfers (idempotencyKey=K)"] --> CHK{"Ключ K уже есть?"}
-  CHK -->|нет| NEW["Создать перевод + broadcast"]
-  NEW --> SAVE["Сохранить K вместе с переводом"]
-  CHK -->|да| REPLAY["Вернуть существующую операцию (replay, без повторного broadcast)"]
+REQ["POST /transfers (idempotencyKey=K)"] --> CHK{"Ключ K уже есть?"}
+CHK -->|нет| NEW["Создать перевод + broadcast"]
+NEW --> SAVE["Сохранить K вместе с переводом"]
+CHK -->|да| REPLAY["Вернуть существующую операцию (replay, без повторного broadcast)"]
 `} />
 
 ## idempotencyKey на переводах
 
 `POST /api/v1/vaults/{code}/transfers` принимает `idempotencyKey`. Повтор запроса с **тем же** ключом вернёт уже созданный перевод, а broadcast не повторяется — в ответе приходит существующая операция (replay).
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-# первый запрос создаёт перевод; повтор с тем же ключом вернёт его же
-curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
-    "toAddress": "TQ2m...p4rX",
-    "token": "usdt",
-    "amount": "1350.00",
-    "idempotencyKey": "payout-2026-03-14-001"
-  }'
-```
-```javascript
-const body = {
-  fromAddressId: "cmr3f41z20001psp7phmyapw3",
-  toAddress: "TQ2m...p4rX",
-  token: "usdt",
-  amount: "1350.00",
-  idempotencyKey: "payout-2026-03-14-001",
-};
+<CodeGroup show-lines="true">
+  ```bash
+  # первый запрос создаёт перевод; повтор с тем же ключом вернёт его же
+  curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+      "toAddress": "TQ2m...p4rX",
+      "token": "usdt",
+      "amount": "1350.00",
+      "idempotencyKey": "payout-2026-03-14-001"
+    }'
+  ```
 
-// безопасно повторять этот запрос: тот же ключ → тот же перевод
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(body),
-});
-```
-```python
-body = {
-    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
-    "toAddress": "TQ2m...p4rX",
-    "token": "usdt",
-    "amount": "1350.00",
-    "idempotencyKey": "payout-2026-03-14-001",
-}
+  ```javascript
+  const body = {
+    fromAddressId: "cmr3f41z20001psp7phmyapw3",
+    toAddress: "TQ2m...p4rX",
+    token: "usdt",
+    amount: "1350.00",
+    idempotencyKey: "payout-2026-03-14-001",
+  };
 
-# безопасно повторять: тот же ключ → тот же перевод
-requests.post(
-    "[BASE_URL]/api/v1/vaults/acme-otc/transfers",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json=body,
-)
-```
+  // безопасно повторять этот запрос: тот же ключ → тот же перевод
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  ```
+
+  ```python
+  body = {
+      "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+      "toAddress": "TQ2m...p4rX",
+      "token": "usdt",
+      "amount": "1350.00",
+      "idempotencyKey": "payout-2026-03-14-001",
+  }
+
+  # безопасно повторять: тот же ключ → тот же перевод
+  requests.post(
+      "[BASE_URL]/api/v1/vaults/acme-otc/transfers",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json=body,
+  )
+  ```
 </CodeGroup>
 
 Ключ сохраняется вместе с созданным переводом: второй запрос с тем же ключом коротко замыкается на существующую операцию, а не создаёт и не отправляет её повторно.
@@ -73,53 +76,57 @@ requests.post(
 ## Рекомендации
 
 - **Всегда** передавайте `idempotencyKey` на переводах.
-- Делайте ключ стабильным идентификатором бизнес-операции (id инвойса, выплаты), а не случайным на каждый ретрай, — иначе повтор создаст новый платёж.
-- Один ключ = один платёж; для нового платежа — новый ключ.
+- Делайте ключ стабильным идентификатором бизнес-операции (id инвойса, выплаты), а не случайным на каждый ретрай, - иначе повтор создаст новый платёж.
+- Один ключ = один платёж; для нового платежа - новый ключ.
 
 ## Другие механизмы безопасного повтора
 
-`idempotencyKey` — про переводы. У других изменяющих операций своя защита от дублей и гонок:
+`idempotencyKey` - про переводы. У других изменяющих операций своя защита от дублей и гонок:
 
-| Операция | Механизм | Поведение при повторе/гонке |
-|----------|----------|-----------------------------|
-| перевод (`POST /transfers`) | `idempotencyKey` | тот же ключ → та же операция (replay) |
-| грант на адрес (`POST /shares`) | идемпотентность по субъекту | обновляет/реактивирует, не плодит дубли |
-| финальное подтверждение заявки | optimistic-lock | цель изменилась → `REJECTED` (stale) |
-| создание адреса | повтор подбора `pathIndex` | параллельные запросы не займут один путь |
+| Операция                        | Механизм                    | Поведение при повторе/гонке              |
+| ------------------------------- | --------------------------- | ---------------------------------------- |
+| перевод (`POST /transfers`)     | `idempotencyKey`            | тот же ключ → та же операция (replay)    |
+| грант на адрес (`POST /shares`) | идемпотентность по субъекту | обновляет/реактивирует, не плодит дубли  |
+| финальное подтверждение заявки  | optimistic-lock             | цель изменилась → `REJECTED` (stale)     |
+| создание адреса                 | повтор подбора `pathIndex`  | параллельные запросы не займут один путь |
 
-Про optimistic-lock заявки подробнее — на странице [Аппрувалы](/concepts/approvals).
+Про optimistic-lock заявки подробнее - на странице [Аппрувалы](/concepts/approvals).
 
-<Expandable title="Глоссарий">
-  - **idempotencyKey** — ключ, по которому повтор запроса возвращает ту же операцию.
-  - **replay** — возврат уже созданной операции без повторного broadcast.
-  - **broadcast** — отправка транзакции в сеть.
-  - **optimistic-lock** — проверка неизменности цели перед применением; при изменении — отказ (stale).
-  - **pathIndex** — индекс пути деривации адреса.
+<Expandable title="Глоссарий" default-open="false">
+  - **idempotencyKey** - ключ, по которому повтор запроса возвращает ту же операцию.
+  - **replay** - возврат уже созданной операции без повторного broadcast.
+  - **broadcast** - отправка транзакции в сеть.
+  - **optimistic-lock** - проверка неизменности цели перед применением; при изменении — отказ (stale).
+  - **pathIndex** - индекс пути деривации адреса.
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| повтор задвоил платёж | ключ был случайным на каждый ретрай, а не стабильным |
-| «тот же ключ, другой платёж» | ключ переиспользован для новой операции — один ключ = один платёж |
-| ретрай без ключа задвоился | `idempotencyKey` не передан |
-| заявка `REJECTED` (stale) | цель изменилась после создания — это optimistic-lock, а не сбой сети |
-| грант «создался дважды» | нет: `POST /shares` идемпотентен, второй вызов обновил тот же грант |
+| Симптом                      | Причина                                                              |
+| ---------------------------- | -------------------------------------------------------------------- |
+| повтор задвоил платёж        | ключ был случайным на каждый ретрай, а не стабильным                 |
+| «тот же ключ, другой платёж» | ключ переиспользован для новой операции - один ключ = один платёж    |
+| ретрай без ключа задвоился   | `idempotencyKey` не передан                                          |
+| заявка `REJECTED` (stale)    | цель изменилась после создания - это optimistic-lock, а не сбой сети |
+| грант «создался дважды»      | нет: `POST /shares` идемпотентен, второй вызов обновил тот же грант  |
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Отправить перевод" icon="send" href="/guides/send-transfer" horizontal>
+<Columns cols="2">
+  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
     idempotencyKey и состояния перевода на практике.
   </Card>
-  <Card title="Аппрувалы" icon="check-check" href="/concepts/approvals" horizontal>
+
+  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
     optimistic-lock и stale-отказ заявки.
   </Card>
-  <Card title="Модель ошибок" icon="alert-circle" href="/platform/errors" horizontal>
+
+  <Card title="Модель ошибок" href="/platform/errors" icon="alert-circle" horizontal="false">
     Коды ответов при повторах и конфликтах.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Поле idempotencyKey на странице перевода.
   </Card>
 </Columns>
+

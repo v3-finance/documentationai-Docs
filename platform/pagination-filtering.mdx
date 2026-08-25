@@ -1,17 +1,18 @@
 ---
 title: Пагинация и фильтры
-description: Как листать списки через keyset-пагинацию (cursor/nextCursor) и какие фильтры общие для эндпоинтов-списков.
+description: >-
+  Как листать списки через keyset-пагинацию (cursor/nextCursor) и какие фильтры
+  общие для эндпоинтов-списков.
 ---
-
-Списки в V3 Custody используют **keyset-пагинацию** по курсору: вы листаете, передавая курсор предыдущей страницы. В отличие от offset, keyset устойчив к вставкам — строки не пропускаются и не дублируются между страницами.
+Списки в V3 Custody используют **keyset-пагинацию** по курсору: вы листаете, передавая курсор предыдущей страницы. В отличие от offset, keyset устойчив к вставкам - строки не пропускаются и не дублируются между страницами.
 
 <MermaidDiagram chart={`
 flowchart TD
-  REQ["GET список?limit=N"] --> RESP["{ items, nextCursor }"]
-  RESP --> Q{"nextCursor есть?"}
-  Q -->|да| NEXT["GET ...?cursor=nextCursor"]
-  NEXT --> RESP
-  Q -->|нет / пусто| END["Страницы кончились"]
+REQ["GET список?limit=N"] --> RESP["{ items, nextCursor }"]
+RESP --> Q{"nextCursor есть?"}
+Q -->|да| NEXT["GET ...?cursor=nextCursor"]
+NEXT --> RESP
+Q -->|нет / пусто| END["Страницы кончились"]
 `} />
 
 ## Keyset-пагинация
@@ -25,113 +26,119 @@ flowchart TD
 }
 ```
 
-- `cursor` — передайте сюда `nextCursor` предыдущей страницы, чтобы получить следующую.
-- `limit` — размер страницы.
-- Когда `nextCursor` пуст или отсутствует — страницы кончились.
+- `cursor` - передайте сюда `nextCursor` предыдущей страницы, чтобы получить следующую.
+- `limit` - размер страницы.
+- Когда `nextCursor` пуст или отсутствует - страницы кончились.
 
 ## Сортировка
 
 По умолчанию списки идут «сначала свежие»: убывание по временно́му ключу с `id` как tiebreaker. Курсор идёт в том же порядке:
 
-| Список | Ключ сортировки (убывание) |
-|-------|-----------------------------|
-| журнал | `postedAt`, `id` |
-| лента операций | `createdAt`, `id` |
-| контрагенты | `createdAt` |
+| Список         | Ключ сортировки (убывание) |
+| -------------- | -------------------------- |
+| журнал         | `postedAt`, `id`           |
+| лента операций | `createdAt`, `id`          |
+| контрагенты    | `createdAt`                |
 
 ## Общие фильтры
 
 Набор зависит от эндпоинта, но встречаются одни и те же:
 
-| Фильтр | Значение | Где встречается |
-|--------|----------|----------------|
-| `from` / `to` | временно́е окно (по `createdAt` / `postedAt`) | журнал, лента, контрагенты |
-| `direction` | `in` / `out` | лента операций |
-| `token` | ограничить токеном | балансы, адреса, журнал |
-| `status` | статус | заявки, операции |
-| `search` | подстрока | адреса, контрагенты |
-| `access=shared` | только доступное вам | адреса |
-| `mine` / `pendingMine` | мои / ждут моего голоса | заявки |
-| `userId` | admin: чью активность показать | списки с активностью |
+| Фильтр                 | Значение                                      | Где встречается            |
+| ---------------------- | --------------------------------------------- | -------------------------- |
+| `from` / `to`          | временно́е окно (по `createdAt` / `postedAt`) | журнал, лента, контрагенты |
+| `direction`            | `in` / `out`                                  | лента операций             |
+| `token`                | ограничить токеном                            | балансы, адреса, журнал    |
+| `status`               | статус                                        | заявки, операции           |
+| `search`               | подстрока                                     | адреса, контрагенты        |
+| `access=shared`        | только доступное вам                          | адреса                     |
+| `mine` / `pendingMine` | мои / ждут моего голоса                       | заявки                     |
+| `userId`               | admin: чью активность показать                | списки с активностью       |
 
-<Callout kind="info">
-  Доступные фильтры различаются по эндпоинтам — точный список смотрите в [Справочнике API](/api-reference) на странице конкретного списка.
+<Callout kind="info" collapsed="false">
+  Доступные фильтры различаются по эндпоинтам - точный список смотрите в [Справочнике API](/api-reference) на странице конкретного списка.
 </Callout>
 
 ## Пример: пройти все страницы
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-# одна страница; для следующей подставьте nextCursor в ?cursor=
-curl "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in&limit=100" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-let cursor;
-const all = [];
-do {
-  const url = new URL("[BASE_URL]/api/v1/vaults/acme-otc/history");
-  url.searchParams.set("direction", "in");
-  url.searchParams.set("limit", "100");
-  if (cursor) url.searchParams.set("cursor", cursor);
+<CodeGroup show-lines="true">
+  ```bash
+  # одна страница; для следующей подставьте nextCursor в ?cursor=
+  curl "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in&limit=100" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
 
-  const page = await fetch(url, {
-    headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
-  }).then((r) => r.json());
+  ```javascript
+  let cursor;
+  const all = [];
+  do {
+    const url = new URL("[BASE_URL]/api/v1/vaults/acme-otc/history");
+    url.searchParams.set("direction", "in");
+    url.searchParams.set("limit", "100");
+    if (cursor) url.searchParams.set("cursor", cursor);
 
-  all.push(...page.items);
-  cursor = page.nextCursor;
-} while (cursor);
-```
-```python
-cursor, items = None, []
-while True:
-    params = {"direction": "in", "limit": 100}
-    if cursor:
-        params["cursor"] = cursor
-    page = requests.get(
-        "[BASE_URL]/api/v1/vaults/acme-otc/history",
-        params=params,
-        headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    ).json()
-    items += page["items"]
-    cursor = page.get("nextCursor")
-    if not cursor:
-        break
-```
+    const page = await fetch(url, {
+      headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+    }).then((r) => r.json());
+
+    all.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  ```
+
+  ```python
+  cursor, items = None, []
+  while True:
+      params = {"direction": "in", "limit": 100}
+      if cursor:
+          params["cursor"] = cursor
+      page = requests.get(
+          "[BASE_URL]/api/v1/vaults/acme-otc/history",
+          params=params,
+          headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      ).json()
+      items += page["items"]
+      cursor = page.get("nextCursor")
+      if not cursor:
+          break
+  ```
 </CodeGroup>
 
-<Expandable title="Глоссарий">
-  - **keyset-пагинация** — листание по курсору предыдущей страницы (устойчиво к вставкам, в отличие от offset).
-  - **cursor** — курсор запрашиваемой страницы (`nextCursor` предыдущей).
-  - **nextCursor** — курсор следующей страницы; пустой — конец списка.
-  - **limit** — размер страницы.
-  - **tiebreaker** — `id` для однозначного порядка при равном временно́м ключе.
+<Expandable title="Глоссарий" default-open="false">
+  - **keyset-пагинация** - листание по курсору предыдущей страницы (устойчиво к вставкам, в отличие от offset).
+  - **cursor** - курсор запрашиваемой страницы (`nextCursor` предыдущей).
+  - **nextCursor** - курсор следующей страницы; пустой - конец списка.
+  - **limit** - размер страницы.
+  - **tiebreaker** - `id` для однозначного порядка при равном временно́м ключе.
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| дубли / пропуски между страницами | ожидали offset — здесь keyset, листайте курсором |
-| бесконечный цикл | `cursor` не обновляется из `nextCursor` |
-| курсор «не подходит» | `cursor` от другого списка/сортировки — курсоры не переносимы |
-| фильтр игнорируется | фильтр не поддержан этим эндпоинтом (см. Справочник) |
-| порядок не тот | список по умолчанию «сначала свежие» (убывание) |
+| Симптом                           | Причина                                                       |
+| --------------------------------- | ------------------------------------------------------------- |
+| дубли / пропуски между страницами | ожидали offset - здесь keyset, листайте курсором              |
+| бесконечный цикл                  | `cursor` не обновляется из `nextCursor`                       |
+| курсор «не подходит»              | `cursor` от другого списка/сортировки - курсоры не переносимы |
+| фильтр игнорируется               | фильтр не поддержан этим эндпоинтом (см. Справочник)          |
+| порядок не тот                    | список по умолчанию «сначала свежие» (убывание)               |
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+<Columns cols="2">
+  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
     Лента операций и журнал — пагинируемые списки.
   </Card>
-  <Card title="Аппрувалы" icon="check-check" href="/concepts/approvals" horizontal>
+
+  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
     Фильтры mine / pendingMine / status.
   </Card>
-  <Card title="Модель ошибок" icon="alert-circle" href="/platform/errors" horizontal>
+
+  <Card title="Модель ошибок" href="/platform/errors" icon="alert-circle" horizontal="false">
     Коды ошибок при неверных параметрах.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Фильтры и курсоры по каждому списку.
   </Card>
 </Columns>
+

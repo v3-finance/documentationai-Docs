@@ -1,87 +1,90 @@
 ---
 title: Аутентификация детально
-description: Технические детали аутентификации V3 Custody — вход по magic-link, сессия better-auth, Bearer и cookie, ошибки и модель доступа.
+description: >-
+  Технические детали аутентификации V3 Custody - вход по magic-link, сессия
+  better-auth, Bearer и cookie, ошибки и модель доступа.
 ---
+Эта страница углубляет вводную [Аутентификацию](/authentication): здесь - вход по magic-link, жизненный цикл сессии, механика Bearer и cookie и граничные случаи. Оба способа аутентификации построены на сессии better-auth: **Bearer-токен** для сервисов и мобильных, **httpOnly-cookie** для веба.
 
-Эта страница углубляет вводную [Аутентификацию](/authentication): здесь — вход по magic-link, жизненный цикл сессии, механика Bearer и cookie и граничные случаи. Оба способа аутентификации построены на сессии better-auth: **Bearer-токен** для сервисов и мобильных, **httpOnly-cookie** для веба.
-
-Поток входа — от magic-link до сессии и двух способов её предъявления:
+Поток входа - от magic-link до сессии и двух способов её предъявления:
 
 <MermaidDiagram chart={`
 flowchart TD
-  ML["POST /auth/magic-link (email)"] --> CHK{"Существующий или приглашённый?"}
-  CHK -->|нет| BLK["Регистрация заблокирована hook'ом"]
-  CHK -->|да| LINK["Письмо с magic-link"]
-  LINK --> SESS["Сессия better-auth"]
-  SESS --> BEAR["Bearer — сервисы / мобильные"]
-  SESS --> COOK["httpOnly-cookie — веб"]
+ML["POST /auth/magic-link (email)"] --> CHK{"Существующий или приглашённый?"}
+CHK -->|нет| BLK["Регистрация заблокирована hook'ом"]
+CHK -->|да| LINK["Письмо с magic-link"]
+LINK --> SESS["Сессия better-auth"]
+SESS --> BEAR["Bearer — сервисы / мобильные"]
+SESS --> COOK["httpOnly-cookie — веб"]
 `} />
 
 ## Вход по magic-link
 
 Вход выполняется по magic-link, а не по паролю:
 
-- `POST /api/v1/auth/magic-link` — отправляет magic-link на email (через Cloudflare Email binding). Войти могут только существующие пользователи и приглашённые (с активным приглашением); регистрация без приглашения заблокирована hook'ом better-auth. После клика по ссылке пользователь редиректится на фронтенд (`FRONTEND_URL`).
+- `POST /api/v1/auth/magic-link` - отправляет magic-link на email (через Cloudflare Email binding). Войти могут только существующие пользователи и приглашённые (с активным приглашением); регистрация без приглашения заблокирована hook'ом better-auth. После клика по ссылке пользователь редиректится на фронтенд (`FRONTEND_URL`).
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/auth/magic-link" \
-  -H "Content-Type: application/json" \
-  -d '{ "email": "trader@acme.com" }'
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/auth/magic-link", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email: "trader@acme.com" }),
-});
-```
-```python
-import requests
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/auth/magic-link" \
+    -H "Content-Type: application/json" \
+    -d '{ "email": "trader@acme.com" }'
+  ```
 
-requests.post(
-    "[BASE_URL]/api/v1/auth/magic-link",
-    json={"email": "trader@acme.com"},
-)
-```
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/auth/magic-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "trader@acme.com" }),
+  });
+  ```
+
+  ```python
+  import requests
+
+  requests.post(
+      "[BASE_URL]/api/v1/auth/magic-link",
+      json={"email": "trader@acme.com"},
+  )
+  ```
 </CodeGroup>
 
-<Callout kind="alert">
-  Точная схема тела запроса — в [Справочнике API](/api-reference) на странице magic-link. Поля в примере приведены для иллюстрации.
+<Callout kind="alert" collapsed="false">
+  Точная схема тела запроса - в [Справочнике API](/api-reference) на странице magic-link. Поля в примере приведены для иллюстрации.
 </Callout>
 
 ## Сессия better-auth
 
 После входа создаётся сессия better-auth. Веб получает httpOnly-cookie, а сервисы и мобильные используют токен сессии как Bearer.
 
-- **Срок действия сессии** — [TODO: указать время жизни сессии/токена].
-- **Обновление и ротация** — [TODO: описать механизм refresh/ротации токена, если он есть].
+- **Срок действия сессии** - \[TODO: указать время жизни сессии/токена].
+- **Обновление и ротация** - \[TODO: описать механизм refresh/ротации токена, если он есть].
 
 ## Способы предъявления: Bearer и cookie
 
-Оба способа — одна и та же сессия better-auth, но разный транспорт:
+Оба способа - одна и та же сессия better-auth, но разный транспорт:
 
-| | Bearer | Cookie |
-|--|--------|--------|
-| для кого | сервисы, мобильные | веб-консоль |
+|                | Bearer                          | Cookie                         |
+| -------------- | ------------------------------- | ------------------------------ |
+| для кого       | сервисы, мобильные              | веб-консоль                    |
 | как передаётся | `Authorization: Bearer <токен>` | httpOnly-cookie, автоматически |
-| доступ из JS | да (вы храните токен) | нет (httpOnly, по замыслу) |
-| server↔server | да | нет |
+| доступ из JS   | да (вы храните токен)           | нет (httpOnly, по замыслу)     |
+| server↔server  | да                              | нет                            |
 
-### Bearer — для сервисов и мобильных
+### Bearer - для сервисов и мобильных
 
 Передайте токен сессии в заголовке `Authorization: Bearer <токен>`.
 
-<Callout kind="info">
-  [TODO: описать, как серверная интеграция получает токен доступа для Bearer — механизм выдачи пока уточняется. Найти по метке TODO.]
+<Callout kind="info" collapsed="false">
+  \[TODO: описать, как серверная интеграция получает токен доступа для Bearer - механизм выдачи пока уточняется. Найти по метке TODO.]
 </Callout>
 
-### Cookie — для веба
+### Cookie - для веба
 
 При входе через веб-консоль better-auth выставляет httpOnly-cookie с сессией. Браузер отправляет её автоматически, из JavaScript она недоступна по замыслу.
 
-- **Имя cookie** — [TODO: уточнить имя session-cookie].
-- **Защита от CSRF** — [TODO: описать механизм CSRF для cookie-запросов].
+- **Имя cookie** - \[TODO: уточнить имя session-cookie].
+- **Защита от CSRF** - \[TODO: описать механизм CSRF для cookie-запросов].
 
 Для интеграций «сервер↔сервер» используйте Bearer, а не cookie.
 
@@ -97,53 +100,57 @@ requests.post(
 }
 ```
 
-| Код | Когда | Значение |
-|-----|-------|----------|
-| `401` | нет валидного токена/сессии | не аутентифицирован — «кто вы» неизвестно |
+| Код   | Когда                         | Значение                                           |
+| ----- | ----------------------------- | -------------------------------------------------- |
+| `401` | нет валидного токена/сессии   | не аутентифицирован - «кто вы» неизвестно          |
 | `403` | аутентифицирован, но нет прав | членство в группах не даёт действие (default-deny) |
 
-Аутентифицированный, но недостаточно авторизованный запрос вернёт `403` — доступ определяется членством в группах (default-deny; без allow-политик действия запрещены).
+Аутентифицированный, но недостаточно авторизованный запрос вернёт `403` - доступ определяется членством в группах (default-deny; без allow-политик действия запрещены).
 
 ## Модель доступа
 
-Аутентификация отвечает «кто вы», доступ — «что вам можно». В V3 Custody права определяются членством в группах политик, отдельных «скоупов» у токена нет. Видимость по умолчанию изолирована: участник видит своё, администратор — весь Vault; расширяется через `visibility-grants`. Подробнее — на странице [Аутентификация](/authentication) и в гайде [Пригласить команду](/guides/invite-team).
+Аутентификация отвечает «кто вы», доступ - «что вам можно». В V3 Custody права определяются членством в группах политик, отдельных «скоупов» у токена нет. Видимость по умолчанию изолирована: участник видит своё, администратор - весь Vault; расширяется через `visibility-grants`. Подробнее - на странице [Аутентификация](/authentication) и в гайде [Пригласить команду](/guides/invite-team).
 
 ## Лимиты запросов
 
-[TODO: описать rate limits на аутентификацию и API, если они есть.]
+\[TODO: описать rate limits на аутентификацию и API, если они есть.]
 
-<Expandable title="Глоссарий">
-  - **magic-link** — одноразовая ссылка входа вместо пароля.
-  - **better-auth** — механизм сессий, на котором построена аутентификация.
-  - **Bearer-токен** — токен сессии в заголовке `Authorization` для сервисов/мобильных.
-  - **httpOnly-cookie** — cookie сессии для веба, недоступная из JS.
-  - **default-deny** — без allow-политик действие запрещено.
-  - **visibility-grants** — расширение изолированной по умолчанию видимости.
+<Expandable title="Глоссарий" default-open="false">
+  - **magic-link** - одноразовая ссылка входа вместо пароля.
+  - **better-auth** - механизм сессий, на котором построена аутентификация.
+  - **Bearer-токен** - токен сессии в заголовке `Authorization` для сервисов/мобильных.
+  - **httpOnly-cookie** - cookie сессии для веба, недоступная из JS.
+  - **default-deny** - без allow-политик действие запрещено.
+  - **visibility-grants** - расширение изолированной по умолчанию видимости.
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| `401` хотя токен передан | истёк срок сессии или неверный формат заголовка `Authorization` |
-| регистрация не проходит | нет активного приглашения — вход только для существующих/приглашённых |
-| cookie не читается из JS | httpOnly по замыслу — для server↔server используйте Bearer |
-| `403` у нового пользователя | не добавлен ни в одну группу (default-deny) |
-| magic-link не приходит | проверьте email / Email binding; вход возможен только для приглашённых |
+| Симптом                     | Причина                                                                |
+| --------------------------- | ---------------------------------------------------------------------- |
+| `401` хотя токен передан    | истёк срок сессии или неверный формат заголовка `Authorization`        |
+| регистрация не проходит     | нет активного приглашения - вход только для существующих/приглашённых  |
+| cookie не читается из JS    | httpOnly по замыслу - для server↔server используйте Bearer             |
+| `403` у нового пользователя | не добавлен ни в одну группу (default-deny)                            |
+| magic-link не приходит      | проверьте email / Email binding; вход возможен только для приглашённых |
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Аутентификация" icon="lock" href="/authentication" horizontal>
+<Columns cols="2">
+  <Card title="Аутентификация" href="/authentication" icon="lock" horizontal="false">
     Вводный обзор: Bearer, cookie и доступ по приглашению.
   </Card>
-  <Card title="Модель доступа" icon="shield" href="/platform/access-model" horizontal>
+
+  <Card title="Модель доступа" href="/platform/access-model" icon="shield" horizontal="false">
     Как доступ проверяется на уровне платформы.
   </Card>
-  <Card title="Пригласить команду" icon="user-plus" href="/guides/invite-team" horizontal>
+
+  <Card title="Пригласить команду" href="/guides/invite-team" icon="user-plus" horizontal="false">
     Приглашения, роли и группы.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Схема magic-link и параметры аутентификации.
   </Card>
 </Columns>
+
