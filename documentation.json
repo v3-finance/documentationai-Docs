@@ -19,7 +19,7 @@
             "icon": "rocket",
             "pages": [
               {
-                "title": "Introduction",
+                "title": "Введение",
                 "path": "introduction",
                 "icon": "home"
               },
