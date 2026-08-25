@@ -1,74 +1,79 @@
 ---
 title: Быстрый старт
-description: Первые вызовы к API V3 Custody — найти Vault, проверить баланс и отправить перевод через Policy Engine.
+description: >-
+  Первые вызовы к API V3 Custody - найти Vault, проверить баланс и отправить
+  перевод через Policy Engine.
 ---
-
 За несколько минут вы сделаете первые вызовы к REST API V3 Custody: найдёте свой Vault, проверите баланс, создадите адрес и отправите перевод. Все операции идут через один HTTP‑эндпоинт и подчиняются тем же правилам, что и веб‑консоль.
 
-<Callout kind="info">
-  Примеры используют базовый URL `[BASE_URL]` — это адрес вашего self‑hosted инстанса. Замените `[BASE_URL]` на реальный адрес (его легко найти по квадратным скобкам).
+<Callout kind="info" collapsed="false">
+  Примеры используют базовый URL `[BASE_URL]` - это адрес вашего self‑hosted инстанса.
 </Callout>
 
 ## Что понадобится
 
-- Адрес инстанса V3 Custody — в примерах `[BASE_URL]`.
-- Токен доступа для заголовка `Authorization`. Как его получить — на странице [Аутентификация](/authentication).
+- Адрес инстанса V3 Custody - в примерах `[BASE_URL]`.
+- Токен доступа для заголовка `Authorization`. Как его получить - на странице [Аутентификация](/authentication).
 - Любой HTTP‑клиент: `curl`, JavaScript или Python.
 
 ## Настройте окружение
 
 Сложите базовый URL и токен в переменные окружения, чтобы не повторять их в каждом запросе.
 
-<CodeGroup tabs="bash,JavaScript,Python">
-```bash
-export V3_BASE_URL="[BASE_URL]"
-export V3_TOKEN="YOUR_API_TOKEN"
-```
-```javascript
-const BASE_URL = process.env.V3_BASE_URL; // [BASE_URL]
-const TOKEN = process.env.V3_TOKEN;
+<CodeGroup show-lines="true">
+  ```bash
+  export V3_BASE_URL="[BASE_URL]"
+  export V3_TOKEN="YOUR_API_TOKEN"
+  ```
 
-const headers = {
-  Authorization: `Bearer ${TOKEN}`,
-  "Content-Type": "application/json",
-};
-```
-```python
-import os, requests
+  ```javascript
+  const BASE_URL = process.env.V3_BASE_URL; // [BASE_URL]
+  const TOKEN = process.env.V3_TOKEN;
 
-BASE_URL = os.environ["V3_BASE_URL"]  # [BASE_URL]
-TOKEN = os.environ["V3_TOKEN"]
-
-headers = {
-    "Authorization": f"Bearer {TOKEN}",
+  const headers = {
+    Authorization: `Bearer ${TOKEN}`,
     "Content-Type": "application/json",
-}
-```
+  };
+  ```
+
+  ```python
+  import os, requests
+
+  BASE_URL = os.environ["V3_BASE_URL"]  # [BASE_URL]
+  TOKEN = os.environ["V3_TOKEN"]
+
+  headers = {
+      "Authorization": f"Bearer {TOKEN}",
+      "Content-Type": "application/json",
+  }
+  ```
 </CodeGroup>
 
-<Callout kind="alert">
+<Callout kind="alert" collapsed="false">
   Не коммитьте токен в репозиторий и не подставляйте его в код напрямую — держите в переменных окружения или менеджере секретов.
 </Callout>
 
 ## Шаг 1. Найдите свой Vault
 
-Vault — это дерево адресов вашей организации. Почти все маршруты начинаются с его кода (`code`, slug). Получите список доступных Vault'ов:
+Vault - это дерево адресов вашей организации. Почти все маршруты начинаются с его кода (`code`, slug). Получите список доступных Vault'ов:
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl "$V3_BASE_URL/api/v1/vaults" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-const res = await fetch(`${BASE_URL}/api/v1/vaults`, { headers });
-const vaults = await res.json();
-console.log(vaults);
-```
-```python
-res = requests.get(f"{BASE_URL}/api/v1/vaults", headers=headers)
-vaults = res.json()
-print(vaults)
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl "$V3_BASE_URL/api/v1/vaults" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
+
+  ```javascript
+  const res = await fetch(`${BASE_URL}/api/v1/vaults`, { headers });
+  const vaults = await res.json();
+  console.log(vaults);
+  ```
+
+  ```python
+  res = requests.get(f"{BASE_URL}/api/v1/vaults", headers=headers)
+  vaults = res.json()
+  print(vaults)
+  ```
 </CodeGroup>
 
 ```json
@@ -82,32 +87,34 @@ print(vaults)
 ]
 ```
 
-Запомните `code` — дальше он подставляется во все запросы как `{code}`.
+Запомните `code` - дальше он подставляется во все запросы как `{code}`.
 
 ## Шаг 2. Проверьте баланс
 
 Баланс в V3 Custody не хранится отдельным числом, а вычисляется из проводок журнала. Он делится на **available** (можно тратить) и **reserved** (заблокировано под ожидающими переводами, но всё ещё ваше).
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl "$V3_BASE_URL/api/v1/vaults/demo_vault/balances?summary=true" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-const res = await fetch(
-  `${BASE_URL}/api/v1/vaults/demo_vault/balances?summary=true`,
-  { headers },
-);
-console.log(await res.json());
-```
-```python
-res = requests.get(
-    f"{BASE_URL}/api/v1/vaults/demo_vault/balances",
-    params={"summary": "true"},
-    headers=headers,
-)
-print(res.json())
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl "$V3_BASE_URL/api/v1/vaults/demo_vault/balances?summary=true" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
+
+  ```javascript
+  const res = await fetch(
+    `${BASE_URL}/api/v1/vaults/demo_vault/balances?summary=true`,
+    { headers },
+  );
+  console.log(await res.json());
+  ```
+
+  ```python
+  res = requests.get(
+      f"{BASE_URL}/api/v1/vaults/demo_vault/balances",
+      params={"summary": "true"},
+      headers=headers,
+  )
+  print(res.json())
+  ```
 </CodeGroup>
 
 ```json
@@ -119,56 +126,60 @@ print(res.json())
 }
 ```
 
-<ParamField query="summary" param-type="string" required="false" enum="true,false">
-  `true` — вернуть только агрегаты по токенам, без списка счетов.
+<ParamField query="summary" param-type="string" required="false" deprecated="false" show-location="true" enum="true,false">
+  `true` - вернуть только агрегаты по токенам, без списка счетов.
 </ParamField>
-<ParamField query="addressId" param-type="string" required="false">
+
+<ParamField query="addressId" param-type="string" required="false" deprecated="false" show-location="true">
   Баланс конкретного адреса.
 </ParamField>
-<ParamField query="token" param-type="string" required="false">
+
+<ParamField query="token" param-type="string" required="false" deprecated="false" show-location="true">
   Ограничить одним токеном (например, `usdt`).
 </ParamField>
 
-<Callout kind="tip">
+<Callout kind="tip" collapsed="false">
   Нужен баланс на дату в прошлом? Есть отдельный эндпоинт `GET /api/v1/vaults/{code}/balances/as-of?at=...`, который восстанавливает позицию из проводок, зафиксированных до выбранного момента.
 </Callout>
 
 ## Шаг 3. Создайте адрес (опционально)
 
-Новый адрес готов к работе с первой секунды — активация и предварительное пополнение не нужны, комиссию берёт на себя Gas Station. Адрес задаётся сетью и набором статических сегментов деривации.
+Новый адрес готов к работе с первой секунды - активация и предварительное пополнение не нужны, комиссию берёт на себя Gas Station. Адрес задаётся сетью и набором статических сегментов деривации.
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "$V3_BASE_URL/api/v1/vaults/demo_vault/addresses" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "networkCode": "tron_network",
-    "staticSegments": { "purpose": "invoices", "asset": "usdt" }
-  }'
-```
-```javascript
-const res = await fetch(`${BASE_URL}/api/v1/vaults/demo_vault/addresses`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    networkCode: "tron_network",
-    staticSegments: { purpose: "invoices", asset: "usdt" },
-  }),
-});
-console.log(await res.json());
-```
-```python
-res = requests.post(
-    f"{BASE_URL}/api/v1/vaults/demo_vault/addresses",
-    headers=headers,
-    json={
-        "networkCode": "tron_network",
-        "staticSegments": {"purpose": "invoices", "asset": "usdt"},
-    },
-)
-print(res.json())
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "$V3_BASE_URL/api/v1/vaults/demo_vault/addresses" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "networkCode": "tron_network",
+      "staticSegments": { "purpose": "invoices", "asset": "usdt" }
+    }'
+  ```
+
+  ```javascript
+  const res = await fetch(`${BASE_URL}/api/v1/vaults/demo_vault/addresses`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      networkCode: "tron_network",
+      staticSegments: { purpose: "invoices", asset: "usdt" },
+    }),
+  });
+  console.log(await res.json());
+  ```
+
+  ```python
+  res = requests.post(
+      f"{BASE_URL}/api/v1/vaults/demo_vault/addresses",
+      headers=headers,
+      json={
+          "networkCode": "tron_network",
+          "staticSegments": {"purpose": "invoices", "asset": "usdt"},
+      },
+  )
+  print(res.json())
+  ```
 </CodeGroup>
 
 ```json
@@ -182,72 +193,78 @@ print(res.json())
 
 ## Шаг 4. Отправьте перевод
 
-Перевод не уходит в сеть сразу. Сначала сумма резервируется, затем запрос проходит через Policy Engine, который возвращает один из исходов — **allow**, **queue** (нужно подтверждение) или **block**. Только после этого MPC‑ноды подписывают транзакцию.
+Перевод не уходит в сеть сразу. Сначала сумма резервируется, затем запрос проходит через Policy Engine, который возвращает один из исходов - **allow**, **queue** (нужно подтверждение) или **block**. Только после этого MPC‑ноды подписывают транзакцию.
 
 Передайте уникальный `idempotencyKey`: повтор запроса с тем же ключом вернёт уже созданный перевод и не задвоит платёж.
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "$V3_BASE_URL/api/v1/vaults/demo_vault/transfers" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
-    "toAddress": "TQ2m...p4rX",
-    "token": "usdt",
-    "amount": "1350.00",
-    "idempotencyKey": "quickstart-transfer-001"
-  }'
-```
-```javascript
-const res = await fetch(`${BASE_URL}/api/v1/vaults/demo_vault/transfers`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    fromAddressId: "cmr3f41z20001psp7phmyapw3",
-    toAddress: "TQ2m...p4rX",
-    token: "usdt",
-    amount: "1350.00",
-    idempotencyKey: "quickstart-transfer-001",
-  }),
-});
-console.log(await res.json());
-```
-```python
-res = requests.post(
-    f"{BASE_URL}/api/v1/vaults/demo_vault/transfers",
-    headers=headers,
-    json={
-        "fromAddressId": "cmr3f41z20001psp7phmyapw3",
-        "toAddress": "TQ2m...p4rX",
-        "token": "usdt",
-        "amount": "1350.00",
-        "idempotencyKey": "quickstart-transfer-001",
-    },
-)
-print(res.json())
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "$V3_BASE_URL/api/v1/vaults/demo_vault/transfers" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+      "toAddress": "TQ2m...p4rX",
+      "token": "usdt",
+      "amount": "1350.00",
+      "idempotencyKey": "quickstart-transfer-001"
+    }'
+  ```
+
+  ```javascript
+  const res = await fetch(`${BASE_URL}/api/v1/vaults/demo_vault/transfers`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      fromAddressId: "cmr3f41z20001psp7phmyapw3",
+      toAddress: "TQ2m...p4rX",
+      token: "usdt",
+      amount: "1350.00",
+      idempotencyKey: "quickstart-transfer-001",
+    }),
+  });
+  console.log(await res.json());
+  ```
+
+  ```python
+  res = requests.post(
+      f"{BASE_URL}/api/v1/vaults/demo_vault/transfers",
+      headers=headers,
+      json={
+          "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+          "toAddress": "TQ2m...p4rX",
+          "token": "usdt",
+          "amount": "1350.00",
+          "idempotencyKey": "quickstart-transfer-001",
+      },
+  )
+  print(res.json())
+  ```
 </CodeGroup>
 
-<Callout kind="alert">
-  Набор полей тела запроса приведён для примера. Точный и всегда актуальный список параметров и форматов — в [Справочнике API](/api-reference) на странице создания перевода.
+<Callout kind="alert" collapsed="false">
+  Набор полей тела запроса приведён для примера. Точный и всегда актуальный список параметров и форматов - в [Справочнике API](/api-reference) на странице создания перевода.
 </Callout>
 
 Если Policy Engine вернул **queue**, перевод ждёт подтверждения — заявку и её статус видно через `GET /api/v1/vaults/{code}/approval-requests`. Пока заявка ждёт, сумма остаётся в **reserved**; при отклонении она возвращается в **available**.
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Аутентификация" icon="key" href="/authentication" horizontal>
+<Columns cols="2">
+  <Card title="Аутентификация" href="/authentication" icon="key" horizontal="false">
     Bearer‑токены, cookie‑сессии и доступ по приглашению.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Все эндпоинты, параметры и форматы ответов.
   </Card>
-  <Card title="Введение" icon="book-open" href="/introduction" horizontal>
+
+  <Card title="Введение" href="/introduction" icon="book-open" horizontal="false">
     Как устроены доли ключа, политики и журнал двойной записи.
   </Card>
-  <Card title="Ошибки" icon="alert-circle" href="/errors" horizontal>
+
+  <Card title="Ошибки" href="/errors" icon="alert-circle" horizontal="false">
     Коды ошибок и что делать с каждой из них.
   </Card>
 </Columns>
+
