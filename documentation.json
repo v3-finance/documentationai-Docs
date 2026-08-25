@@ -15,7 +15,7 @@
         "icon": "book",
         "groups": [
           {
-            "group": "Getting Started",
+            "group": "Начало работы",
             "icon": "rocket",
             "pages": [
               {
@@ -36,7 +36,7 @@
             ]
           },
           {
-            "group": "Core Concepts",
+            "group": "Основные понятия",
             "icon": "layers",
             "pages": [
               {
@@ -82,7 +82,7 @@
             ]
           },
           {
-            "group": "Guides",
+            "group": "Руководства",
             "icon": "list-checks",
             "pages": [
               {
@@ -145,7 +145,7 @@
             ]
           },
           {
-            "group": "Platform",
+            "group": "Платформа",
             "icon": "plug",
             "pages": [
               {
