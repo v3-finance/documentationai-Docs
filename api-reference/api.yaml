@@ -8,7 +8,7 @@ info:
     ## Аутентификация
 
 
-    Все бизнес-ручки требуют аутентификации (better-auth). Веб —
+    Все бизнес-ручки требуют аутентификации. Веб —
     httpOnly-cookie; мобилка/сервисы — `Authorization: Bearer <token>`. Токен
     выдаётся magic-link'ом (регистрация только по инвайту админа). userId для
     операций берётся ИЗ СЕССИИ — в теле/query не передаётся.
@@ -63,7 +63,7 @@ info:
     автоматически (in по fromExternal, out по toAddress), ретро-матч при
     добавлении адреса.
 
-    - **Инвайты** — регистрация только по приглашению (better-auth magic-link +
+    - **Инвайты** — регистрация только по приглашению (magic-link +
     databaseHooks).
 
 
@@ -91,11 +91,11 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: better-auth session token. Мобилка/сервисы. Веб использует cookie.
+      description: session token. Мобилка/сервисы. Веб использует cookie.
     cookieAuth:
       type: apiKey
       in: cookie
-      name: better-auth.session_token
+      name: session_token
   schemas:
     ApiErrorEnvelope:
       type: object
@@ -171,7 +171,7 @@ tags:
   - name: System
     description: Служебные endpoints
   - name: Auth
-    description: "Аутентификация: better-auth magic-link. Сессия — httpOnly cookie"
+    description: "Аутентификация: magic-link. Сессия — httpOnly cookie"
   - name: Networks
     description: Глобальный реестр сетей (уникальны по BIP-44 coinType)
   - name: Tokens
@@ -477,7 +477,7 @@ paths:
       summary: Запросить magic-link
       description: "Отправляет magic-link на email через Cloudflare Email binding.
         Войти смогут: существующие пользователи и приглашённые (у кого есть
-        pending invitation) — better-auth hook блокирует регистрацию без
+        pending invitation) — hook блокирует регистрацию без
         приглашения. После клика по ссылке пользователь редиректится на фронтенд
         (FRONTEND_URL): существующий — /dashboard, новый — /welcome, ошибка —
         /login. Абсолютные URL, т.к. фронт на другом домене."
@@ -49493,7 +49493,7 @@ paths:
       description: "Создаёт pending invitation в Vault со списком групп, в которые
         юзер попадёт при accept. Валидация: email свободен (нет User и активного
         инвайта), все группы принадлежат Vault'у. Регистрация в системе возможна
-        ТОЛЬКО по приглашению — better-auth hook блокирует sign-up без него.
+        ТОЛЬКО по приглашению — hook блокирует sign-up без него.
         Инвайты бессрочные (MVP)."
       responses:
         "201":
@@ -49861,7 +49861,7 @@ paths:
         - Invitations
       summary: Принять инвайт (debug)
       description: "Для отладки/curl-тестов. В реальном flow accept происходит
-        автоматически в better-auth databaseHooks.user.create.after: находится
+        автоматически в databaseHooks.user.create.after: находится
         pending инвайт по email, создаются PolicyGroupMembership, инвайт
         помечается accepted. Этот endpoint вызывает ту же логику для уже
         существующего User."
@@ -50540,7 +50540,7 @@ paths:
           required: true
           schema:
             type: string
-          description: id пользователя (better-auth User.id)
+          description: id пользователя
       responses:
         "200":
           description: Роль обновлена
@@ -51205,7 +51205,7 @@ paths:
                     anyOf:
                       - type: string
                       - type: "null"
-                    description: Ссылка на аватар (better-auth-поле image)
+                    description: Ссылка на аватар
                   color:
                     anyOf:
                       - type: string
@@ -51309,7 +51309,7 @@ paths:
                     anyOf:
                       - type: string
                       - type: "null"
-                    description: Ссылка на аватар (better-auth-поле image)
+                    description: Ссылка на аватар
                   color:
                     anyOf:
                       - type: string
