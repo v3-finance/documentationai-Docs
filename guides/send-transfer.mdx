@@ -1,25 +1,26 @@
 ---
 title: Отправить перевод
-description: Создать исходящий перевод с идемпотентностью, разобраться в состояниях (резерв, awaiting_approval, confirmed) и отменить зависшую заявку.
+description: >-
+  Создать исходящий перевод с идемпотентностью, разобраться в состояниях
+  (резерв, awaiting_approval, confirmed) и отменить зависшую заявку.
 ---
+Перевод не уходит в сеть сразу: сумма сначала резервируется, затем Policy Engine решает `allow` / `queue` / `block`, и только потом MPC-ноды подписывают транзакцию. Здесь - как отправить перевод, что происходит с его состоянием и как отменить зависшую заявку. Механику резерва см. в [Журнале](/concepts/ledger), решения - в [Policy Engine](/concepts/policy-engine).
 
-Перевод не уходит в сеть сразу: сумма сначала резервируется, затем Policy Engine решает `allow` / `queue` / `block`, и только потом MPC-ноды подписывают транзакцию. Здесь — как отправить перевод, что происходит с его состоянием и как отменить зависшую заявку. Механику резерва см. в [Журнале](/concepts/ledger), решения — в [Policy Engine](/concepts/policy-engine).
-
-Полный путь перевода — от создания до исполнения или возврата:
+Полный путь перевода - от создания до исполнения или возврата:
 
 <MermaidDiagram chart={`
 flowchart TD
-  C["Создан перевод → reserved"] --> D{"Policy Engine"}
-  D -->|allow| CONF["confirmed (списано)"]
-  D -->|block| B["403 (не создан)"]
-  D -->|queue| AW["awaiting_approval"]
-  AW -->|порог approve| CONF
-  AW -->|reject / cancel| RET["возврат в available"]
+C["Создан перевод → reserved"] --> D{"Policy Engine"}
+D -->|allow| CONF["confirmed (списано)"]
+D -->|block| B["403 (не создан)"]
+D -->|queue| AW["awaiting_approval"]
+AW -->|порог approve| CONF
+AW -->|reject / cancel| RET["возврат в available"]
 `} />
 
 ## Что понадобится
 
-- Vault и адрес с балансом (`fromAddressId`) — см. гайды [Создать Vault](/guides/create-vault) и [Сгенерировать адреса](/guides/generate-addresses).
+- Vault и адрес с балансом (`fromAddressId`) - см. гайды [Создать Vault](/guides/create-vault) и [Сгенерировать адреса](/guides/generate-addresses).
 - Токен доступа (см. [Аутентификацию](/authentication)).
 - Любой HTTP‑клиент.
 
@@ -27,57 +28,59 @@ flowchart TD
 
 `POST /api/v1/vaults/{code}/transfers` создаёт исходящий перевод. Всегда передавайте `idempotencyKey`: повтор с тем же ключом вернёт уже созданный перевод, а не задвоит платёж.
 
-<Callout kind="tip">
-  Перед созданием можно спросить Policy Engine, пройдёт ли перевод, — вызовом `evaluate` (`allow`/`queue`/`block` без побочных эффектов). См. [Пред-проверить перевод](/guides/evaluate-transfer).
+<Callout kind="tip" collapsed="false">
+  Перед созданием можно спросить Policy Engine, пройдёт ли перевод, - вызовом `evaluate` (`allow`/`queue`/`block` без побочных эффектов). См. [Пред-проверить перевод](/guides/evaluate-transfer).
 </Callout>
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fromAddressId": "cmr3f41z20001psp7phmyapw3",
-    "toAddress": "TQ2m...p4rX",
-    "token": "usdt",
-    "amount": "1350.00",
-    "idempotencyKey": "payout-2026-03-14-001"
-  }'
-```
-```javascript
-const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    fromAddressId: "cmr3f41z20001psp7phmyapw3",
-    toAddress: "TQ2m...p4rX",
-    token: "usdt",
-    amount: "1350.00",
-    idempotencyKey: "payout-2026-03-14-001",
-  }),
-});
-console.log(await res.json());
-```
-```python
-res = requests.post(
-    "[BASE_URL]/api/v1/vaults/acme-otc/transfers",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={
-        "fromAddressId": "cmr3f41z20001psp7phmyapw3",
-        "toAddress": "TQ2m...p4rX",
-        "token": "usdt",
-        "amount": "1350.00",
-        "idempotencyKey": "payout-2026-03-14-001",
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+      "toAddress": "TQ2m...p4rX",
+      "token": "usdt",
+      "amount": "1350.00",
+      "idempotencyKey": "payout-2026-03-14-001"
+    }'
+  ```
+
+  ```javascript
+  const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
     },
-)
-print(res.json())
-```
+    body: JSON.stringify({
+      fromAddressId: "cmr3f41z20001psp7phmyapw3",
+      toAddress: "TQ2m...p4rX",
+      token: "usdt",
+      amount: "1350.00",
+      idempotencyKey: "payout-2026-03-14-001",
+    }),
+  });
+  console.log(await res.json());
+  ```
+
+  ```python
+  res = requests.post(
+      "[BASE_URL]/api/v1/vaults/acme-otc/transfers",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={
+          "fromAddressId": "cmr3f41z20001psp7phmyapw3",
+          "toAddress": "TQ2m...p4rX",
+          "token": "usdt",
+          "amount": "1350.00",
+          "idempotencyKey": "payout-2026-03-14-001",
+      },
+  )
+  print(res.json())
+  ```
 </CodeGroup>
 
-Под капотом платформа резолвит адрес и токен, конвертирует сумму по `decimals`, проверяет баланс и прогоняет запрос через Policy Engine (`action=transfer`). При запрете вернётся `403`, при нехватке средств — ошибка `INSUFFICIENT_BALANCE`.
+Под капотом платформа резолвит адрес и токен, конвертирует сумму по `decimals`, проверяет баланс и прогоняет запрос через Policy Engine (`action=transfer`). При запрете вернётся `403`, при нехватке средств - ошибка `INSUFFICIENT_BALANCE`.
 
 ```json
 {
@@ -89,9 +92,9 @@ print(res.json())
 }
 ```
 
-Сумма возвращается в двух видах: `amount` — в минимальных единицах (raw), `amountDecimal` — в человеческом формате.
+Сумма возвращается в двух видах: `amount` - в минимальных единицах (raw), `amountDecimal` - в человеческом формате.
 
-<Callout kind="alert">
+<Callout kind="alert" collapsed="false">
   Набор полей тела приведён для примера. Точную схему запроса сверьте со [Справочником API](/api-reference) на странице создания перевода.
 </Callout>
 
@@ -99,111 +102,117 @@ print(res.json())
 
 Исход зависит от Policy Engine:
 
-| Исход | Статус перевода | Резерв |
-|-------|-----------------|--------|
-| `allow` | исполняется (в демо → `confirmed`) | списывается |
-| `queue` | `awaiting_approval` | держится в `reserved` |
-| `block` | не создаётся (`403`) | не резервируется |
+| Исход   | Статус перевода                    | Резерв                |
+| ------- | ---------------------------------- | --------------------- |
+| `allow` | исполняется (в демо → `confirmed`) | списывается           |
+| `queue` | `awaiting_approval`                | держится в `reserved` |
+| `block` | не создаётся (`403`)               | не резервируется      |
 
 При отклонении или отмене зарезервированная сумма возвращается в `available`.
 
 ## Шаг 3. Проверьте статус
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID", {
-  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
-});
-console.log(await res.json());
-```
-```python
-requests.get(
-    "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-).json()
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
+
+  ```javascript
+  const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID", {
+    headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+  });
+  console.log(await res.json());
+  ```
+
+  ```python
+  requests.get(
+      "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+  ).json()
+  ```
 </CodeGroup>
 
-`GET /api/v1/vaults/{code}/transfers/{id}` возвращает статус, суммы (raw и decimal) и — для переводов, требующих одобрения, — снапшот одобряющих с их голосами.
+`GET /api/v1/vaults/{code}/transfers/{id}` возвращает статус, суммы (raw и decimal) и - для переводов, требующих одобрения, - снапшот одобряющих с их голосами.
 
 ## Шаг 4. Подтвердите (если перевод в очереди)
 
 Если перевод в статусе `awaiting_approval`, члены approver-группы голосуют:
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{ "decision": "approve" }'
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ decision: "approve" }),
-});
-```
-```python
-requests.post(
-    "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={"decision": "approve"},
-)
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "decision": "approve" }'
+  ```
+
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ decision: "approve" }),
+  });
+  ```
+
+  ```python
+  requests.post(
+      "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/approvals",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={"decision": "approve"},
+  )
+  ```
 </CodeGroup>
 
-- `approve` добирает порог — перевод исполняется.
-- `reject` — вето: перевод сразу `rejected`, средства возвращаются.
-- Инициатор не голосует за свой перевод; у каждого — один голос.
+- `approve` добирает порог - перевод исполняется.
+- `reject` - вето: перевод сразу `rejected`, средства возвращаются.
+- Инициатор не голосует за свой перевод; у каждого - один голос.
 
-Подробнее о заявках — на странице [Аппрувалы](/concepts/approvals).
+Подробнее о заявках - на странице [Аппрувалы](/concepts/approvals).
 
-<Callout kind="alert">
-  Точное имя поля голоса (здесь — `decision`) сверьте со [Справочником API](/api-reference) на странице голосования по переводу.
+<Callout kind="alert" collapsed="false">
+  Точное имя поля голоса (здесь это `decision`) сверьте со [Справочником API](/api-reference) на странице голосования по переводу.
 </Callout>
 
 ## Шаг 5. Отмените зависший перевод
 
 Если одобряющие бездействуют, инициатор может отозвать перевод, пока тот ждёт одобрения:
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
-});
-```
-```python
-requests.post(
-    "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-)
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
+
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+  });
+  ```
+
+  ```python
+  requests.post(
+      "[BASE_URL]/api/v1/vaults/acme-otc/transfers/TRANSFER_ID/cancel",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+  )
+  ```
 </CodeGroup>
 
 `cancel` переводит заявку в `rejected` и возвращает зарезервированные средства. После одобрения или исполнения отменить нельзя.
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| `403` при создании | перевод заблокирован политикой — смотрите `reason` / `trace` |
-| `INSUFFICIENT_BALANCE` | не хватает `available` на адресе |
-| токен не резолвится | токен не совпадает с сетью адреса |
-| `cancel` не срабатывает | перевод уже одобрен или исполнен — отменить нельзя |
-| платёж задвоился | не передан стабильный `idempotencyKey` |
+| Симптом                 | Причина                                                      |
+| ----------------------- | ------------------------------------------------------------ |
+| `403` при создании      | перевод заблокирован политикой - смотрите `reason` / `trace` |
+| `INSUFFICIENT_BALANCE`  | не хватает `available` на адресе                             |
+| токен не резолвится     | токен не совпадает с сетью адреса                            |
+| `cancel` не срабатывает | перевод уже одобрен или исполнен - отменить нельзя           |
+| платёж задвоился        | не передан стабильный `idempotencyKey`                       |
 
 ## Готово, если
 
@@ -213,17 +222,21 @@ requests.post(
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Пред-проверить перевод" icon="search-check" href="/guides/evaluate-transfer" horizontal>
+<Columns cols="2">
+  <Card title="Пред-проверить перевод" href="/guides/evaluate-transfer" icon="search-check" horizontal="false">
     `evaluate` до создания перевода.
   </Card>
-  <Card title="Аппрувалы" icon="check-check" href="/concepts/approvals" horizontal>
+
+  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
     Голосование, снапшот подписантов и veto.
   </Card>
-  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+
+  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
     Резерв, состояния баланса и идемпотентность.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Схема перевода, голосования и отмены.
   </Card>
 </Columns>
+

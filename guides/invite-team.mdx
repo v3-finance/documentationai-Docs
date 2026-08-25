@@ -1,129 +1,132 @@
 ---
 title: Пригласить команду
-description: Пригласить участников по email с назначением групп, отозвать приглашение и добавить существующего пользователя в группу.
+description: >-
+  Пригласить участников по email с назначением групп, отозвать приглашение и
+  добавить существующего пользователя в группу.
 ---
+Регистрация в V3 Custody - только по приглашению. Вы приглашаете участника по email и сразу назначаете группы, в которые он попадёт при принятии; его доступ вытекает именно из этих групп. Про модель доступа - на страницах [Аутентификация](/authentication) и [Policy Engine](/concepts/policy-engine).
 
-Регистрация в V3 Custody — только по приглашению. Вы приглашаете участника по email и сразу назначаете группы, в которые он попадёт при принятии; его доступ вытекает именно из этих групп. Про модель доступа — на страницах [Аутентификация](/authentication) и [Policy Engine](/concepts/policy-engine).
-
-Жизненный цикл приглашения — от создания до членства в группах:
+Жизненный цикл приглашения - от создания до членства в группах:
 
 <MermaidDiagram chart={`
 flowchart TD
-  INV["POST /invitations → pending"] --> ML["magic-link (token)"]
-  ML --> ACC{"Принятие"}
-  ACC -->|регистрация по email| MEM["PolicyGroupMembership + инвайт accepted"]
-  ACC -->|revoke до принятия| REV["revoked → 410 Gone"]
-  MEM --> ACCESS["Доступ = членство в группах"]
+INV["POST /invitations → pending"] --> ML["magic-link (token)"]
+ML --> ACC{"Принятие"}
+ACC -->|регистрация по email| MEM["PolicyGroupMembership + инвайт accepted"]
+ACC -->|revoke до принятия| REV["revoked → 410 Gone"]
+MEM --> ACCESS["Доступ = членство в группах"]
 `} />
 
 ## Что понадобится
 
 - Vault (`vaultId`) и токен доступа (см. [Аутентификацию](/authentication)).
-- email приглашаемого — свободный (нет пользователя и активного инвайта).
+- email приглашаемого - свободный (нет пользователя и активного инвайта).
 - id групп, все из этого же Vault'а.
 
 ## Шаг 1. Создайте приглашение
 
 `POST /api/v1/invitations` создаёт pending-приглашение со списком групп. Валидация: email свободен (нет пользователя и активного инвайта), все группы принадлежат Vault'у.
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/invitations" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "vaultId": "VAULT_ID",
-    "email": "trader@acme.com",
-    "groups": ["POLICY_GROUP_ID"]
-  }'
-```
-```javascript
-const res = await fetch("[BASE_URL]/api/v1/invitations", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    vaultId: "VAULT_ID",
-    email: "trader@acme.com",
-    groups: ["POLICY_GROUP_ID"],
-  }),
-});
-console.log(await res.json());
-```
-```python
-res = requests.post(
-    "[BASE_URL]/api/v1/invitations",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={
-        "vaultId": "VAULT_ID",
-        "email": "trader@acme.com",
-        "groups": ["POLICY_GROUP_ID"],
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/invitations" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "vaultId": "VAULT_ID",
+      "email": "trader@acme.com",
+      "groups": ["POLICY_GROUP_ID"]
+    }'
+  ```
+
+  ```javascript
+  const res = await fetch("[BASE_URL]/api/v1/invitations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
     },
-)
-print(res.json())
-```
+    body: JSON.stringify({
+      vaultId: "VAULT_ID",
+      email: "trader@acme.com",
+      groups: ["POLICY_GROUP_ID"],
+    }),
+  });
+  console.log(await res.json());
+  ```
+
+  ```python
+  res = requests.post(
+      "[BASE_URL]/api/v1/invitations",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={
+          "vaultId": "VAULT_ID",
+          "email": "trader@acme.com",
+          "groups": ["POLICY_GROUP_ID"],
+      },
+  )
+  print(res.json())
+  ```
 </CodeGroup>
 
 В ответ приходит созданный инвайт с `token` для magic-link.
 
-<Callout kind="alert">
-  Точные имена полей тела (здесь — `vaultId`, `email`, `groups`) сверьте со [Справочником API](/api-reference) на странице создания приглашения.
+<Callout kind="alert" collapsed="false">
+  Точные имена полей тела (здесь - `vaultId`, `email`, `groups`) сверьте со [Справочником API](/api-reference) на странице создания приглашения.
 </Callout>
 
 ## Шаг 2. Принятие приглашения
 
 У инвайта есть `token`. Страница принятия читает его публичным эндпоинтом:
 
-- `GET /api/v1/invitations/by-token/{token}` — публичный, без авторизации (безопасность держится на энтропии токена). Показывает «You're invited to \<vault\> as \<groups\>»; для отозванных/принятых возвращает `410 Gone`.
+- `GET /api/v1/invitations/by-token/{token}` - публичный, без авторизации (безопасность держится на энтропии токена). Показывает «You're invited to \<vault> as \<groups>»; для отозванных/принятых возвращает `410 Gone`.
 
 При реальной регистрации принятие происходит автоматически: better-auth находит pending-инвайт по email, создаёт `PolicyGroupMembership` и помечает инвайт принятым. Для отладки есть `POST /api/v1/invitations/accept-debug`, который выполняет ту же логику для уже существующего пользователя.
 
 Состояния инвайта и что отдаёт `by-token`:
 
-| Состояние | Что значит | `by-token` |
-|-----------|-----------|------------|
-| `pending` | создан, ждёт принятия | `200` + детали |
-| `accepted` | принят, membership создан | `410 Gone` |
-| `revoked` | отозван до принятия | `410 Gone` |
+| Состояние  | Что значит                | `by-token`     |
+| ---------- | ------------------------- | -------------- |
+| `pending`  | создан, ждёт принятия     | `200` + детали |
+| `accepted` | принят, membership создан | `410 Gone`     |
+| `revoked`  | отозван до принятия       | `410 Gone`     |
 
 ## Шаг 3. Управляйте приглашениями и группами
 
-| Действие | Запрос |
-|---------|--------|
-| список приглашений Vault'а | `GET /api/v1/vaults/{code}/invitations` |
-| отозвать pending-инвайт | `POST /api/v1/invitations/{id}/revoke` |
+| Действие                    | Запрос                                     |
+| --------------------------- | ------------------------------------------ |
+| список приглашений Vault'а  | `GET /api/v1/vaults/{code}/invitations`    |
+| отозвать pending-инвайт     | `POST /api/v1/invitations/{id}/revoke`     |
 | чтение по токену (публично) | `GET /api/v1/invitations/by-token/{token}` |
-| debug-принятие | `POST /api/v1/invitations/accept-debug` |
-| создать группу политик | `POST /api/v1/policy-groups` |
-| добавить участника в группу | `POST /api/v1/policy-groups/{id}/members` |
+| debug-принятие              | `POST /api/v1/invitations/accept-debug`    |
+| создать группу политик      | `POST /api/v1/policy-groups`               |
+| добавить участника в группу | `POST /api/v1/policy-groups/{id}/members`  |
 
-<Callout kind="info">
-  Принятое приглашение отозвать нельзя — вместо этого уберите пользователя из групп.
+<Callout kind="info" collapsed="false">
+  Принятое приглашение отозвать нельзя - вместо этого уберите пользователя из групп.
 </Callout>
 
-## Шаг 4. Роли — это группы
+## Шаг 4. Роли - это группы
 
-Права участника вытекают из групп, в которых он состоит — отдельных «скоупов» у токена нет. `userId` при добавлении в группу может быть произвольной строкой — так же подключают сервисные учётки. Убирание из группы снимает тот доступ, который она давала. Подробнее — в гайде [Выдать и отозвать доступ](/guides/share-access).
+Права участника вытекают из групп, в которых он состоит - отдельных «скоупов» у токена нет. `userId` при добавлении в группу может быть произвольной строкой - так же подключают сервисные учётки. Убирание из группы снимает тот доступ, который она давала. Подробнее - в гайде [Выдать и отозвать доступ](/guides/share-access).
 
-<Expandable title="Глоссарий">
-  - **приглашение (invitation)** — pending-запись на регистрацию по email с набором групп.
-  - **magic-link / token** — ссылка с высокоэнтропийным токеном; на нём держится безопасность публичного чтения.
-  - **PolicyGroupMembership** — членство пользователя в группе политик.
-  - **группа политик** — набор прав/политик; доступ участника вытекает из членства.
-  - **accept-debug** — служебный эндпоинт принятия для уже существующего пользователя.
+<Expandable title="Глоссарий" default-open="false">
+  - **приглашение (invitation)** - pending-запись на регистрацию по email с набором групп.
+  - **magic-link / token** - ссылка с высокоэнтропийным токеном; на нём держится безопасность публичного чтения.
+  - **PolicyGroupMembership** - членство пользователя в группе политик.
+  - **группа политик** - набор прав/политик; доступ участника вытекает из членства.
+  - **accept-debug** - служебный эндпоинт принятия для уже существующего пользователя.
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
+| Симптом                       | Причина                                               |
+| ----------------------------- | ----------------------------------------------------- |
 | email занят / уже есть инвайт | нельзя создать второй активный инвайт на тот же email |
-| группа не из этого Vault'а | все группы должны принадлежать Vault'у приглашения |
-| `by-token` вернул `410` | инвайт уже принят или отозван |
-| принятый инвайт не отзывается | уберите пользователя из групп вместо `revoke` |
-| у участника нет прав | не добавлен ни в одну группу — доступ = членство |
+| группа не из этого Vault'а    | все группы должны принадлежать Vault'у приглашения    |
+| `by-token` вернул `410`       | инвайт уже принят или отозван                         |
+| принятый инвайт не отзывается | уберите пользователя из групп вместо `revoke`         |
+| у участника нет прав          | не добавлен ни в одну группу - доступ = членство      |
 
 ## Готово, если
 
@@ -134,17 +137,21 @@ print(res.json())
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Выдать и отозвать доступ" icon="share-2" href="/guides/share-access" horizontal>
+<Columns cols="2">
+  <Card title="Выдать и отозвать доступ" href="/guides/share-access" icon="share-2" horizontal="false">
     Группы, членства и отзыв доступа.
   </Card>
-  <Card title="Аутентификация" icon="lock" href="/authentication" horizontal>
+
+  <Card title="Аутентификация" href="/authentication" icon="lock" horizontal="false">
     Регистрация по приглашению и модель доступа.
   </Card>
-  <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
+
+  <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
     Как группы определяют права и политики.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Приглашения, группы и участники.
   </Card>
 </Columns>
+

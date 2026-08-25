@@ -1,20 +1,21 @@
 ---
 title: Выдать и отозвать доступ
-description: Открыть доступ к адресу или папке ролью, изменить или отозвать грант и проверить, кто и откуда имеет доступ.
+description: >-
+  Открыть доступ к адресу или папке ролью, изменить или отозвать грант и
+  проверить, кто и откуда имеет доступ.
 ---
-
 Доступ к адресам выдаётся точечно — на адрес — или целиком на папку, ролью `viewer` или `contributor`. Субъектом может быть пользователь или группа, а грант на папку покрывает и будущие адреса. Здесь — как выдать, изменить и отозвать доступ и как проверить, у кого он есть. Про модель — на странице [Адреса, папки и доступ](/concepts/addresses).
 
 Откуда берётся доступ к адресу и как это видно в `participants`:
 
 <MermaidDiagram chart={`
 flowchart TD
-  SUB["Субъект: user | group"] --> A{"Куда выдан грант?"}
-  A -->|адрес| SH["shares (viewer / contributor)"]
-  A -->|папка| GR["folder grant → все адреса, вкл. будущие"]
-  SH --> RES["Доступ к адресу"]
-  GR --> RES
-  RES --> VIA["participants.via: direct | user_group | папка"]
+SUB["Субъект: user | group"] --> A{"Куда выдан грант?"}
+A -->|адрес| SH["shares (viewer / contributor)"]
+A -->|папка| GR["folder grant → все адреса, вкл. будущие"]
+SH --> RES["Доступ к адресу"]
+GR --> RES
+RES --> VIA["participants.via: direct | user_group | папка"]
 `} />
 
 ## Что понадобится
@@ -25,9 +26,9 @@ flowchart TD
 
 Роли доступа:
 
-| Роль | Что примерно даёт |
-|------|-------------------|
-| `viewer` | просмотр адреса/папки и её адресов |
+| Роль          | Что примерно даёт                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| `viewer`      | просмотр адреса/папки и её адресов                                                           |
 | `contributor` | расширенные права (точный набор — на странице [Адреса, папки и доступ](/concepts/addresses)) |
 
 Право `canCreateAddress` в роль не входит и выдаётся отдельно.
@@ -36,33 +37,35 @@ flowchart TD
 
 `POST /api/v1/vaults/{code}/addresses/{id}/shares` выдаёт грант на конкретный адрес. Субъект полиморфен (`subjectType: user|group`), права задаются ролью.
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{ "subjectType": "user", "subjectId": "USER_ID", "role": "viewer" }'
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ subjectType: "user", subjectId: "USER_ID", role: "viewer" }),
-});
-```
-```python
-requests.post(
-    "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={"subjectType": "user", "subjectId": "USER_ID", "role": "viewer"},
-)
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "subjectType": "user", "subjectId": "USER_ID", "role": "viewer" }'
+  ```
+
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ subjectType: "user", subjectId: "USER_ID", role: "viewer" }),
+  });
+  ```
+
+  ```python
+  requests.post(
+      "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/shares",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={"subjectType": "user", "subjectId": "USER_ID", "role": "viewer"},
+  )
+  ```
 </CodeGroup>
 
-<Callout kind="info">
+<Callout kind="info" collapsed="false">
   Грант на адрес идемпотентен: повторная выдача тому же субъекту обновляет права и реактивирует отозванный грант — отдельного «изменить» не нужно. Пакетная форма — через `subjects[]`. Право `canCreateAddress` в роль не входит и выдаётся отдельно. Точную схему — в [Справочнике API](/api-reference).
 </Callout>
 
@@ -70,115 +73,121 @@ requests.post(
 
 Грант на папку даёт права на все её адреса, включая добавленные позже:
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{ "subjectType": "group", "subjectId": "USER_GROUP_ID", "role": "contributor" }'
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ subjectType: "group", subjectId: "USER_GROUP_ID", role: "contributor" }),
-});
-```
-```python
-requests.post(
-    "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={"subjectType": "group", "subjectId": "USER_GROUP_ID", "role": "contributor"},
-)
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "subjectType": "group", "subjectId": "USER_GROUP_ID", "role": "contributor" }'
+  ```
+
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ subjectType: "group", subjectId: "USER_GROUP_ID", role: "contributor" }),
+  });
+  ```
+
+  ```python
+  requests.post(
+      "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={"subjectType": "group", "subjectId": "USER_GROUP_ID", "role": "contributor"},
+  )
+  ```
 </CodeGroup>
 
 ## Шаг 3. Измените или отозовите грант
 
 Куда обращаться для каждого действия:
 
-| Действие | Запрос |
-|---------|--------|
-| выдать на адрес | `POST .../addresses/{id}/shares` |
-| выдать на папку | `POST .../address-folders/{id}/grants` |
-| изменить грант папки | `PATCH .../address-folders/{id}/grants/{grantId}` |
-| отозвать грант папки | `DELETE .../address-folders/{id}/grants/{grantId}` |
-| изменить адресный грант | повторный `POST .../shares` (идемпотентно) |
-| отозвать адресный грант | `DELETE` на шер |
+| Действие                | Запрос                                             |
+| ----------------------- | -------------------------------------------------- |
+| выдать на адрес         | `POST .../addresses/{id}/shares`                   |
+| выдать на папку         | `POST .../address-folders/{id}/grants`             |
+| изменить грант папки    | `PATCH .../address-folders/{id}/grants/{grantId}`  |
+| отозвать грант папки    | `DELETE .../address-folders/{id}/grants/{grantId}` |
+| изменить адресный грант | повторный `POST .../shares` (идемпотентно)         |
+| отозвать адресный грант | `DELETE` на шер                                    |
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X PATCH "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{ "role": "viewer" }'
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID", {
-  method: "PATCH",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ role: "viewer" }),
-});
-```
-```python
-requests.patch(
-    "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={"role": "viewer"},
-)
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X PATCH "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "role": "viewer" }'
+  ```
+
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ role: "viewer" }),
+  });
+  ```
+
+  ```python
+  requests.patch(
+      "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/grants/GRANT_ID",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={"role": "viewer"},
+  )
+  ```
 </CodeGroup>
 
-<Callout kind="info">
+<Callout kind="info" collapsed="false">
   Отзыв гранта на группу снимает доступ у всех её участников; личный грант отзывается точечно.
 </Callout>
 
 ## Шаг 4. Проверьте, кто и откуда имеет доступ
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-const res = await fetch(
-  "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants",
-  { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
-);
-console.log(await res.json());
-```
-```python
-requests.get(
+<CodeGroup show-lines="true">
+  ```bash
+  curl "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
+
+  ```javascript
+  const res = await fetch(
     "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-).json()
-```
+    { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
+  );
+  console.log(await res.json());
+  ```
+
+  ```python
+  requests.get(
+      "[BASE_URL]/api/v1/vaults/acme-otc/addresses/ADDRESS_ID/participants",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+  ).json()
+  ```
 </CodeGroup>
 
 `participants` показывает людей (владелец отдан отдельно, группы раскрыты), а поле `via` — источник доступа и тем самым способ его убрать:
 
-| `via` | Источник | Как убрать |
-|-------|----------|-----------|
-| `direct` | личный грант на адрес | `DELETE` шера |
-| `user_group` | грант на группу | убрать из группы или отозвать групповой грант |
-| папка | грант на папку | изменить/отозвать грант папки |
+| `via`        | Источник              | Как убрать                                    |
+| ------------ | --------------------- | --------------------------------------------- |
+| `direct`     | личный грант на адрес | `DELETE` шера                                 |
+| `user_group` | грант на группу       | убрать из группы или отозвать групповой грант |
+| папка        | грант на папку        | изменить/отозвать грант папки                 |
 
 Смежные списки:
 
-| Список | Запрос |
-|--------|--------|
-| выданное мне (только прямые) | `GET .../shared-with-me` |
-| открытое мной | `GET .../shared-by-me` |
-| всё доступное мне | `GET .../addresses?access=shared` |
-| участники адреса | `GET .../addresses/{id}/participants` |
+| Список                       | Запрос                                |
+| ---------------------------- | ------------------------------------- |
+| выданное мне (только прямые) | `GET .../shared-with-me`              |
+| открытое мной                | `GET .../shared-by-me`                |
+| всё доступное мне            | `GET .../addresses?access=shared`     |
+| участники адреса             | `GET .../addresses/{id}/participants` |
 
-<Expandable title="Глоссарий">
+<Expandable title="Глоссарий" default-open="false">
   - **share (шер)** — грант на конкретный адрес.
   - **grant (грант папки)** — доступ на папку и все её адреса, включая будущие.
   - **viewer / contributor** — роли доступа.
@@ -189,13 +198,13 @@ requests.get(
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| грант «дублируется» | повторный `POST /shares` не создаёт второй — он идемпотентно обновляет |
-| доступ не убрался | снят личный грант, но остаётся через группу/папку — смотрите `via` |
-| нет права создавать адрес | `canCreateAddress` не входит в роль, выдаётся отдельно |
-| групповой отзыв затронул лишних | `DELETE` группового гранта снимает доступ у всех участников |
-| будущий адрес недоступен | грант выдан на адрес, а не на папку |
+| Симптом                         | Причина                                                                |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| грант «дублируется»             | повторный `POST /shares` не создаёт второй — он идемпотентно обновляет |
+| доступ не убрался               | снят личный грант, но остаётся через группу/папку — смотрите `via`     |
+| нет права создавать адрес       | `canCreateAddress` не входит в роль, выдаётся отдельно                 |
+| групповой отзыв затронул лишних | `DELETE` группового гранта снимает доступ у всех участников            |
+| будущий адрес недоступен        | грант выдан на адрес, а не на папку                                    |
 
 ## Готово, если
 
@@ -206,17 +215,21 @@ requests.get(
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Адреса, папки и доступ" icon="wallet" href="/concepts/addresses" horizontal>
+<Columns cols="2">
+  <Card title="Адреса, папки и доступ" href="/concepts/addresses" icon="wallet" horizontal="false">
     Роли, источники доступа и изоляция видимости.
   </Card>
-  <Card title="Пригласить команду" icon="user-plus" href="/guides/invite-team" horizontal>
+
+  <Card title="Пригласить команду" href="/guides/invite-team" icon="user-plus" horizontal="false">
     Приглашения, группы и участники.
   </Card>
-  <Card title="Модель доступа" icon="shield" href="/platform/access-model" horizontal>
+
+  <Card title="Модель доступа" href="/platform/access-model" icon="shield" horizontal="false">
     Как доступ проверяется на уровне платформы.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Шеры, гранты папок и participants.
   </Card>
 </Columns>
+

@@ -1,30 +1,31 @@
 ---
 title: Обработать входящее поступление
-description: Как приходящий платёж превращается в депозит — вебхук Wallet Service (TOPUP), зачисление в журнал и чтение поступления.
+description: >-
+  Как приходящий платёж превращается в депозит - вебхук Wallet Service (TOPUP),
+  зачисление в журнал и чтение поступления.
 ---
+Входящие средства приходят ончейн, а Wallet Service следит за адресами и уведомляет V3 Custody вебхуком. Платформа зачисляет сумму в журнал и создаёт депозит. Здесь - как устроен контракт вебхука и как прочитать результат. Механику зачисления см. в [Журнале](/concepts/ledger).
 
-Входящие средства приходят ончейн, а Wallet Service следит за адресами и уведомляет V3 Custody вебхуком. Платформа зачисляет сумму в журнал и создаёт депозит. Здесь — как устроен контракт вебхука и как прочитать результат. Механику зачисления см. в [Журнале](/concepts/ledger).
-
-<Callout kind="info">
-  Вебхук вызывает **Wallet Service**, а не вы. Со стороны интеграции вы обычно потребляете результат — депозиты, ленту и баланс.
+<Callout kind="info" collapsed="false">
+  Вебхук вызывает **Wallet Service**, а не вы. Со стороны интеграции вы обычно потребляете результат - депозиты, ленту и баланс.
 </Callout>
 
-Путь поступления — от ончейн-платежа до записи в ленте и балансе:
+Путь поступления - от ончейн-платежа до записи в ленте и балансе:
 
 <MermaidDiagram chart={`
 flowchart TD
-  ON["Ончейн-платёж на ваш адрес"] --> WS["Wallet Service следит за адресом"]
-  WS --> WH["POST /webhooks/wallet (TOPUP)"]
-  WH --> RT["Резолв токена по contract address"]
-  RT --> CR["Зачисление в журнал"]
-  CR --> DEP["Депозит создан"]
-  DEP --> HIST["Лента (direction=in) + available"]
-  DEP --> CP["Автосопоставление контрагенту"]
+ON["Ончейн-платёж на ваш адрес"] --> WS["Wallet Service следит за адресом"]
+WS --> WH["POST /webhooks/wallet (TOPUP)"]
+WH --> RT["Резолв токена по contract address"]
+RT --> CR["Зачисление в журнал"]
+CR --> DEP["Депозит создан"]
+DEP --> HIST["Лента (direction=in) + available"]
+DEP --> CP["Автосопоставление контрагенту"]
 `} />
 
 ## Что понадобится
 
-- Отслеживаемый адрес в Vault'е — см. [Сгенерировать адреса](/guides/generate-addresses).
+- Отслеживаемый адрес в Vault'е - см. [Сгенерировать адреса](/guides/generate-addresses).
 - Токен доступа для чтения (см. [Аутентификацию](/authentication)).
 - `code` Vault'а или id депозита для чтения результата.
 
@@ -46,33 +47,35 @@ flowchart TD
 }
 ```
 
-`asset` — это contract address токена; по нему платформа находит токен в реестре.
+`asset` - это contract address токена; по нему платформа находит токен в реестре.
 
-<Callout kind="alert">
-  В демо-режиме вебхук без аутентификации и подписи (в проде планируется HMAC), а строгая схема тела не навязывается (внешний контракт, валидация внутри handler'а). Поля выше приведены для примера — точный контракт сверьте со [Справочником API](/api-reference).
+<Callout kind="alert" collapsed="false">
+  В демо-режиме вебхук без аутентификации и подписи (в проде планируется HMAC), а строгая схема тела не навязывается (внешний контракт, валидация внутри handler'а). Поля выше приведены для примера - точный контракт сверьте со [Справочником API](/api-reference).
 </Callout>
 
 ## Шаг 2. Прочитайте поступление
 
 Когда депозит создан, его детали доступны по id:
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl "[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID", {
-  headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
-});
-console.log(await res.json());
-```
-```python
-requests.get(
-    "[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-).json()
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl "[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
+
+  ```javascript
+  const res = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID", {
+    headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
+  });
+  console.log(await res.json());
+  ```
+
+  ```python
+  requests.get(
+      "[BASE_URL]/api/v1/vaults/acme-otc/deposits/DEPOSIT_ID",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+  ).json()
+  ```
 </CodeGroup>
 
 ```json
@@ -85,66 +88,68 @@ requests.get(
 }
 ```
 
-| Поле | Что означает |
-|------|--------------|
-| `id` | id депозита |
-| `amountDecimal` | сумма в человеческом формате |
-| `token` | символ токена |
-| `toAddress` | адрес-получатель |
+| Поле                       | Что означает                               |
+| -------------------------- | ------------------------------------------ |
+| `id`                       | id депозита                                |
+| `amountDecimal`            | сумма в человеческом формате               |
+| `token`                    | символ токена                              |
+| `toAddress`                | адрес-получатель                           |
 | `amlStatus` / `amlDetails` | placeholder до появления automation engine |
 
 ## Шаг 3. Найдите поступления в ленте
 
 Поступления попадают в вашу ленту активности и отражаются в балансе:
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in" \
-  -H "Authorization: Bearer $V3_TOKEN"
-```
-```javascript
-const res = await fetch(
-  "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in",
-  { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
-);
-console.log(await res.json());
-```
-```python
-requests.get(
-    "[BASE_URL]/api/v1/vaults/acme-otc/history",
-    params={"direction": "in"},
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-).json()
-```
+<CodeGroup show-lines="true">
+  ```bash
+  curl "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in" \
+    -H "Authorization: Bearer $V3_TOKEN"
+  ```
+
+  ```javascript
+  const res = await fetch(
+    "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in",
+    { headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` } },
+  );
+  console.log(await res.json());
+  ```
+
+  ```python
+  requests.get(
+      "[BASE_URL]/api/v1/vaults/acme-otc/history",
+      params={"direction": "in"},
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+  ).json()
+  ```
 </CodeGroup>
 
 Куда смотреть после зачисления:
 
-| Что нужно | Запрос |
-|-----------|--------|
-| детали депозита | `GET /api/v1/vaults/{code}/deposits/{id}` |
-| входящие в ленте | `GET /api/v1/vaults/{code}/history?direction=in` |
+| Что нужно          | Запрос                                                   |
+| ------------------ | -------------------------------------------------------- |
+| детали депозита    | `GET /api/v1/vaults/{code}/deposits/{id}`                |
+| входящие в ленте   | `GET /api/v1/vaults/{code}/history?direction=in`         |
 | обновлённый баланс | `GET /api/v1/vaults/{code}/balances` (вырос `available`) |
 
 Поступление также автоматически сопоставляется контрагенту, если адрес-отправитель ему принадлежит.
 
-<Expandable title="Глоссарий">
-  - **TOPUP** — тип события вебхука о входящем поступлении (единственный обрабатываемый сейчас).
-  - **Wallet Service** — внешний сервис, отслеживающий адреса и вызывающий вебхук.
-  - **contract address** — ончейн-адрес контракта токена; по нему токен резолвится из реестра.
-  - **депозит** — запись о зачисленном поступлении.
-  - **amlStatus / amlDetails** — placeholder-поля под будущий automation engine.
+<Expandable title="Глоссарий" default-open="false">
+  - **TOPUP** - тип события вебхука о входящем поступлении (единственный обрабатываемый сейчас).
+  - **Wallet Service** - внешний сервис, отслеживающий адреса и вызывающий вебхук.
+  - **contract address** - ончейн-адрес контракта токена; по нему токен резолвится из реестра.
+  - **депозит** - запись о зачисленном поступлении.
+  - **amlStatus / amlDetails** - placeholder-поля под будущий automation engine.
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| депозит не появился | Wallet Service не прислал `TOPUP` или адрес не отслеживается |
-| токен не зачислен | contract address нет в реестре — резолв не удался |
-| баланс не вырос | смотрите на `available`, проверьте сеть и адрес-получатель |
-| нет привязки к контрагенту | адрес-отправитель не принадлежит ни одному контрагенту |
-| в проде вебхук отклонён | не пройдёт HMAC-подпись (в демо её нет) |
+| Симптом                    | Причина                                                      |
+| -------------------------- | ------------------------------------------------------------ |
+| депозит не появился        | Wallet Service не прислал `TOPUP` или адрес не отслеживается |
+| токен не зачислен          | contract address нет в реестре - резолв не удался            |
+| баланс не вырос            | смотрите на `available`, проверьте сеть и адрес-получатель   |
+| нет привязки к контрагенту | адрес-отправитель не принадлежит ни одному контрагенту       |
+| в проде вебхук отклонён    | не пройдёт HMAC-подпись (в демо её нет)                      |
 
 ## Готово, если
 
@@ -155,17 +160,21 @@ requests.get(
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+<Columns cols="2">
+  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
     Как зачисление отражается проводками и в балансе.
   </Card>
-  <Card title="Контрагенты и контекст" icon="handshake" href="/concepts/counterparties" horizontal>
+
+  <Card title="Контрагенты и контекст" href="/concepts/counterparties" icon="handshake" horizontal="false">
     Автосопоставление поступления к контрагенту.
   </Card>
-  <Card title="Сгенерировать адреса" icon="copy-plus" href="/guides/generate-addresses" horizontal>
+
+  <Card title="Сгенерировать адреса" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
     Адреса для приёма средств.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Контракт вебхука и схема депозита.
   </Card>
 </Columns>
+

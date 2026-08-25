@@ -1,194 +1,203 @@
 ---
 title: Контрагенты и экономический контекст
-description: Кто на другой стороне операции и зачем она — контрагенты и автосопоставление адресов, категории, метаданные и связи операций.
+description: >-
+  Кто на другой стороне операции и зачем она - контрагенты и автосопоставление
+  адресов, категории, метаданные и связи операций.
 ---
-
-Журнал записывает суммы, а контрагенты и метаданные записывают **смысл** — кто на другой стороне и зачем была операция. Этот слой превращает сырые движения средств в бизнес-события, по которым можно строить отчёты.
+Журнал записывает суммы, а контрагенты и метаданные записывают **смысл** - кто на другой стороне и зачем была операция. Этот слой превращает сырые движения средств в бизнес-события, по которым можно строить отчёты.
 
 ## Три слоя контекста
 
-Экономический контекст складывается из трёх слоёв — их легко перепутать:
+Экономический контекст складывается из трёх слоёв - их легко перепутать:
 
-| Слой | Отвечает на | Механизм |
-|------|-------------|----------|
-| Контрагенты | кто на другой стороне | набор адресов + авто-матч |
-| Категории и метаданные | зачем операция | справочник категорий + плоские поля |
-| Связи операций | как операции связаны | явные ссылки refund/reversal/… |
+| Слой                   | Отвечает на           | Механизм                            |
+| ---------------------- | --------------------- | ----------------------------------- |
+| Контрагенты            | кто на другой стороне | набор адресов + авто-матч           |
+| Категории и метаданные | зачем операция        | справочник категорий + плоские поля |
+| Связи операций         | как операции связаны  | явные ссылки refund/reversal/…      |
 
-## Контрагент — это набор адресов
+## Контрагент - это набор адресов
 
-Контрагент — именованная сущность с привязанными адресами. Имя уникально в рамках Vault'а, а каждый адрес принадлежит **максимум одному** контрагенту — иначе сопоставление было бы неоднозначным. Сети адресов проверяются по реестру Networks.
+Контрагент - именованная сущность с привязанными адресами. Имя уникально в рамках Vault'а, а каждый адрес принадлежит **максимум одному** контрагенту - иначе сопоставление было бы неоднозначным. Сети адресов проверяются по реестру Networks.
 
-- `POST /api/v1/vaults/{code}/counterparties` — создать контрагента (можно сразу с адресами).
-- `POST /api/v1/vaults/{code}/counterparties/{id}/addresses` — добавить адрес.
-- `GET /api/v1/vaults/{code}/counterparties` — список с фильтрами `search` (подстрока в имени) и `kind` (например, `exchange`).
+- `POST /api/v1/vaults/{code}/counterparties` - создать контрагента (можно сразу с адресами).
+- `POST /api/v1/vaults/{code}/counterparties/{id}/addresses` - добавить адрес.
+- `GET /api/v1/vaults/{code}/counterparties` - список с фильтрами `search` (подстрока в имени) и `kind` (например, `exchange`).
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/counterparties" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "ACME Exchange",
-    "kind": "exchange",
-    "addresses": [{ "network": "tron", "address": "TQ2m...p4rX" }]
-  }'
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/counterparties", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    name: "ACME Exchange",
-    kind: "exchange",
-    addresses: [{ network: "tron", address: "TQ2m...p4rX" }],
-  }),
-});
-```
-```python
-requests.post(
-    "[BASE_URL]/api/v1/vaults/acme-otc/counterparties",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={
-        "name": "ACME Exchange",
-        "kind": "exchange",
-        "addresses": [{"network": "tron", "address": "TQ2m...p4rX"}],
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/counterparties" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "name": "ACME Exchange",
+      "kind": "exchange",
+      "addresses": [{ "network": "tron", "address": "TQ2m...p4rX" }]
+    }'
+  ```
+
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/counterparties", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
     },
-)
-```
+    body: JSON.stringify({
+      name: "ACME Exchange",
+      kind: "exchange",
+      addresses: [{ network: "tron", address: "TQ2m...p4rX" }],
+    }),
+  });
+  ```
+
+  ```python
+  requests.post(
+      "[BASE_URL]/api/v1/vaults/acme-otc/counterparties",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={
+          "name": "ACME Exchange",
+          "kind": "exchange",
+          "addresses": [{"network": "tron", "address": "TQ2m...p4rX"}],
+      },
+  )
+  ```
 </CodeGroup>
 
-<Callout kind="alert">
+<Callout kind="alert" collapsed="false">
   Набор полей тела приведён для примера. Точную схему сверьте со [Справочником API](/api-reference).
 </Callout>
 
 ## Автосопоставление и ретро-матч
 
-Когда операция идёт на известный адрес или с него, она автоматически привязывается к контрагенту — вручную размечать не нужно. А если адрес добавлен позже, срабатывает **ретро-матч**: уже существующие операции с этим адресом сопоставляются контрагенту задним числом, а история классификации сохраняется.
+Когда операция идёт на известный адрес или с него, она автоматически привязывается к контрагенту - вручную размечать не нужно. А если адрес добавлен позже, срабатывает **ретро-матч**: уже существующие операции с этим адресом сопоставляются контрагенту задним числом, а история классификации сохраняется.
 
 <MermaidDiagram chart={`
 flowchart LR
-  OP["Операция на/с адреса"] -->|адрес известен| CP["Контрагент"]
-  NEW["Добавили адрес позже"] -->|ретро-матч: прошлые операции| CP
+OP["Операция на/с адреса"] -->|адрес известен| CP["Контрагент"]
+NEW["Добавили адрес позже"] -->|ретро-матч: прошлые операции| CP
 `} />
 
-<Callout kind="info">
-  Смысл ретро-матча: классификация не теряется и не требует ручного разбора постфактум — достаточно добавить адрес к контрагенту.
+<Callout kind="info" collapsed="false">
+  Смысл ретро-матча: классификация не теряется и не требует ручного разбора постфактум - достаточно добавить адрес к контрагенту.
 </Callout>
 
 ## Группы контрагентов
 
-Контрагентов можно объединять — например, по типу или юрисдикции:
+Контрагентов можно объединять - например, по типу или юрисдикции:
 
-- `POST /api/v1/vaults/{code}/counterparty-groups` — создать группу (члены добавляются отдельно). Мутация гейтится политикой `counterparty_group_create`: при требовании подписи вернётся заявка.
+- `POST /api/v1/vaults/{code}/counterparty-groups` - создать группу (члены добавляются отдельно). Мутация гейтится политикой `counterparty_group_create`: при требовании подписи вернётся заявка.
 
 ## Архивация: история не теряется
 
 Контрагента не удаляют, а архивируют:
 
-- `POST /api/v1/vaults/{code}/counterparties/{id}/archive` — `archived=true`: контрагент перестаёт матчиться на новые операции и недоступен для новых переводов, но история сохраняется; `false` — вернуть. Гейтится политикой `counterparty_archive`.
+- `POST /api/v1/vaults/{code}/counterparties/{id}/archive` - `archived=true`: контрагент перестаёт матчиться на новые операции и недоступен для новых переводов, но история сохраняется; `false` - вернуть. Гейтится политикой `counterparty_archive`.
 
 ## Категории операций
 
-Категории — это настраиваемый версионируемый справочник, по которому собираются отчёты и фильтры:
+Категории - это настраиваемый версионируемый справочник, по которому собираются отчёты и фильтры:
 
-- `GET /api/v1/vaults/{code}/operation-categories` — список категорий Vault'а. Схема видна любому участнику (из неё собирают `categoryKey`, `groupByField`, `metricField` для конструктора отчётов); `viewScope` ограничивает доступ к значениям на операциях, а не к самой схеме.
+- `GET /api/v1/vaults/{code}/operation-categories` - список категорий Vault'а. Схема видна любому участнику (из неё собирают `categoryKey`, `groupByField`, `metricField` для конструктора отчётов); `viewScope` ограничивает доступ к значениям на операциях, а не к самой схеме.
 
-У категории могут быть свои аппруверы (`POST` / `DELETE /api/v1/vaults/{code}/operation-categories/{id}/approvers`) — так операции определённой категории могут требовать подтверждения назначенных людей (см. [Аппрувалы](/concepts/approvals)).
+У категории могут быть свои аппруверы (`POST` / `DELETE /api/v1/vaults/{code}/operation-categories/{id}/approvers`) - так операции определённой категории могут требовать подтверждения назначенных людей (см. [Аппрувалы](/concepts/approvals)).
 
 ## Метаданные операции
 
 Метаданные привязывают к операции её бизнес-контекст. `GET` / `PATCH /api/v1/vaults/{code}/operations/{type}/{id}/metadata` делает upsert плоских полей; каждое изменение инкрементирует `version`.
 
-| Поле | Что это |
-|------|---------|
-| `paymentPurpose` | назначение платежа |
-| `category` | код из справочника категорий |
-| `tags` | произвольные теги |
-| `description` | описание |
+| Поле                                                                 | Что это                          |
+| -------------------------------------------------------------------- | -------------------------------- |
+| `paymentPurpose`                                                     | назначение платежа               |
+| `category`                                                           | код из справочника категорий     |
+| `tags`                                                               | произвольные теги                |
+| `description`                                                        | описание                         |
 | `dealId` / `invoiceId` / `orderId` / `settlementId` / `obligationId` | внешние референсы и бизнес-связи |
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X PATCH "[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{ "paymentPurpose": "Оплата инвойса", "category": "settlement", "invoiceId": "INV-2026-0042" }'
-```
-```javascript
-await fetch("[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata", {
-  method: "PATCH",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    paymentPurpose: "Оплата инвойса",
-    category: "settlement",
-    invoiceId: "INV-2026-0042",
-  }),
-});
-```
-```python
-requests.patch(
-    "[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={
-        "paymentPurpose": "Оплата инвойса",
-        "category": "settlement",
-        "invoiceId": "INV-2026-0042",
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X PATCH "[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "paymentPurpose": "Оплата инвойса", "category": "settlement", "invoiceId": "INV-2026-0042" }'
+  ```
+
+  ```javascript
+  await fetch("[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
     },
-)
-```
+    body: JSON.stringify({
+      paymentPurpose: "Оплата инвойса",
+      category: "settlement",
+      invoiceId: "INV-2026-0042",
+    }),
+  });
+  ```
+
+  ```python
+  requests.patch(
+      "[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={
+          "paymentPurpose": "Оплата инвойса",
+          "category": "settlement",
+          "invoiceId": "INV-2026-0042",
+      },
+  )
+  ```
 </CodeGroup>
 
-<Callout kind="tip">
-  Не путайте две вещи: плоское поле `category` в метаданных конкретной операции — это ссылка на код из версионируемого справочника категорий, а не сама категория.
+<Callout kind="tip" collapsed="false">
+  Не путайте две вещи: плоское поле `category` в метаданных конкретной операции - это ссылка на код из версионируемого справочника категорий, а не сама категория.
 </Callout>
 
 ## Связи операций
 
 Операции можно явно связывать друг с другом, чтобы отразить экономическую связь:
 
-| Тип связи | Смысл |
-|-----------|-------|
-| `refund` | возврат средств (частичный — `relatedAmountRaw`) |
-| `reversal` | сторно / отмена исходной операции |
-| `correction` | исправление ошибки |
-| `replacement` | замена операции на новую |
+| Тип связи     | Смысл                                            |
+| ------------- | ------------------------------------------------ |
+| `refund`      | возврат средств (частичный - `relatedAmountRaw`) |
+| `reversal`    | сторно / отмена исходной операции                |
+| `correction`  | исправление ошибки                               |
+| `replacement` | замена операции на новую                         |
 
-- `POST /api/v1/vaults/{code}/operation-relations` — создать связь. Встречный платёж **не считается** возвратом автоматически — связь указывается явно.
+- `POST /api/v1/vaults/{code}/operation-relations` - создать связь. Встречный платёж **не считается** возвратом автоматически - связь указывается явно.
 
 Как эти связи сочетаются с неизменяемостью журнала — на странице [Журнал (двойная запись)](/concepts/ledger).
 
 ## Термины
 
-<Expandable title="Словарь контекста">
-- **Контрагент** — именованный набор адресов; операции авто-сопоставляются по адресу.
-- **Ретро-матч** — сопоставление прошлых операций контрагенту после добавления адреса.
-- **Категория** — версионируемый код из справочника для отчётов/фильтров.
-- **Метаданные** — плоские бизнес-поля на операции (`paymentPurpose`, референсы…).
-- **`viewScope`** — ограничение доступа к значениям категорий на операциях.
-- **Связь операций** — явная ссылка одной операции на другую.
-- **`counterparty_archive`** — политика, гейтящая архивацию контрагента.
+<Expandable title="Словарь контекста" default-open="false">
+  - **Контрагент** - именованный набор адресов; операции авто-сопоставляются по адресу.
+  - **Ретро-матч** - сопоставление прошлых операций контрагенту после добавления адреса.
+  - **Категория** - версионируемый код из справочника для отчётов/фильтров.
+  - **Метаданные** - плоские бизнес-поля на операции (`paymentPurpose`, референсы…).
+  - **`viewScope`** - ограничение доступа к значениям категорий на операциях.
+  - **Связь операций** - явная ссылка одной операции на другую.
+  - **`counterparty_archive`** - политика, гейтящая архивацию контрагента.
 </Expandable>
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Обработать поступление" icon="arrow-down-to-line" href="/guides/handle-deposit" horizontal>
+<Columns cols="2">
+  <Card title="Обработать поступление" href="/guides/handle-deposit" icon="arrow-down-to-line" horizontal="false">
     Авто-матч поступления к контрагенту.
   </Card>
-  <Card title="Отчёты и снапшоты" icon="chart-column" href="/guides/reports-snapshots" horizontal>
+
+  <Card title="Отчёты и снапшоты" href="/guides/reports-snapshots" icon="chart-column" horizontal="false">
     Категории и метаданные в отчётах.
   </Card>
-  <Card title="Журнал (двойная запись)" icon="scale" href="/concepts/ledger" horizontal>
+
+  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
     Неизменяемость и связи операций.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Контрагенты, категории, метаданные и связи.
   </Card>
 </Columns>
+

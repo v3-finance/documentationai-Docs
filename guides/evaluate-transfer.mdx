@@ -1,21 +1,22 @@
 ---
 title: Пред-проверить перевод
-description: Проверить перевод через POST /evaluate до создания операции — узнать allow/queue/block, причину и сработавшие политики, ничего не меняя.
+description: >-
+  Проверить перевод через POST /evaluate до создания операции - узнать
+  allow/queue/block, причину и сработавшие политики, ничего не меняя.
 ---
-
-Перед тем как создавать перевод, можно спросить Policy Engine: «пройдёт ли это?» — не создавая ничего и не резервируя средства. `evaluate` возвращает тот же вердикт `allow` / `queue` / `block` с причиной и списком сработавших политик. Удобно для пред-флайт проверок в UI и автоматизации. Про сам движок — на странице [Policy Engine](/concepts/policy-engine).
+Перед тем как создавать перевод, можно спросить Policy Engine: «пройдёт ли это?» - не создавая ничего и не резервируя средства. `evaluate` возвращает тот же вердикт `allow` / `queue` / `block` с причиной и списком сработавших политик. Удобно для пред-флайт проверок в UI и автоматизации. Про сам движок - на странице [Policy Engine](/concepts/policy-engine).
 
 Как `evaluate` приходит к вердикту (тот же расчёт, что и при создании перевода, но без побочных эффектов):
 
 <MermaidDiagram chart={`
 flowchart TD
-  Q["POST /evaluate — ничего не создаёт"] --> P["Собрать политики пользователя в Vault"]
-  P --> F["Оставить включённые; тип действия = запрошенному"]
-  F --> A["Проверить применимость (дерево условий)"]
-  A --> D{"Есть блокирующая?"}
-  D -->|да| BL["block + reason + trace"]
-  D -->|нет, но есть очередь| QU["queue (нужен аппрувал)"]
-  D -->|нет| AL["allow"]
+Q["POST /evaluate — ничего не создаёт"] --> P["Собрать политики пользователя в Vault"]
+P --> F["Оставить включённые; тип действия = запрошенному"]
+F --> A["Проверить применимость (дерево условий)"]
+A --> D{"Есть блокирующая?"}
+D -->|да| BL["block + reason + trace"]
+D -->|нет, но есть очередь| QU["queue (нужен аппрувал)"]
+D -->|нет| AL["allow"]
 `} />
 
 ## Что понадобится
@@ -26,64 +27,66 @@ flowchart TD
 
 ## Шаг 1. Отправьте запрос на оценку
 
-`POST /api/v1/evaluate` — это топ-левел эндпоинт (не внутри `/vaults/{code}`). Он ничего не создаёт — только считает вердикт.
+`POST /api/v1/evaluate` - это топ-левел эндпоинт (не внутри `/vaults/{code}`). Он ничего не создаёт - только считает вердикт.
 
-<CodeGroup tabs="cURL,JavaScript,Python">
-```bash
-curl -X POST "[BASE_URL]/api/v1/evaluate" \
-  -H "Authorization: Bearer $V3_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "action": "transfer",
-    "vaultId": "VAULT_ID",
-    "userId": "USER_ID",
-    "asset": "usdt",
-    "amount": "1350.00",
-    "toAddress": "TQ2m...p4rX"
-  }'
-```
-```javascript
-const res = await fetch("[BASE_URL]/api/v1/evaluate", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.V3_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    action: "transfer",
-    vaultId: "VAULT_ID",
-    userId: "USER_ID",
-    asset: "usdt",
-    amount: "1350.00",
-    toAddress: "TQ2m...p4rX",
-  }),
-});
-console.log(await res.json());
-```
-```python
-res = requests.post(
-    "[BASE_URL]/api/v1/evaluate",
-    headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
-    json={
-        "action": "transfer",
-        "vaultId": "VAULT_ID",
-        "userId": "USER_ID",
-        "asset": "usdt",
-        "amount": "1350.00",
-        "toAddress": "TQ2m...p4rX",
+<CodeGroup show-lines="true">
+  ```bash
+  curl -X POST "[BASE_URL]/api/v1/evaluate" \
+    -H "Authorization: Bearer $V3_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "action": "transfer",
+      "vaultId": "VAULT_ID",
+      "userId": "USER_ID",
+      "asset": "usdt",
+      "amount": "1350.00",
+      "toAddress": "TQ2m...p4rX"
+    }'
+  ```
+
+  ```javascript
+  const res = await fetch("[BASE_URL]/api/v1/evaluate", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.V3_TOKEN}`,
+      "Content-Type": "application/json",
     },
-)
-print(res.json())
-```
+    body: JSON.stringify({
+      action: "transfer",
+      vaultId: "VAULT_ID",
+      userId: "USER_ID",
+      asset: "usdt",
+      amount: "1350.00",
+      toAddress: "TQ2m...p4rX",
+    }),
+  });
+  console.log(await res.json());
+  ```
+
+  ```python
+  res = requests.post(
+      "[BASE_URL]/api/v1/evaluate",
+      headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
+      json={
+          "action": "transfer",
+          "vaultId": "VAULT_ID",
+          "userId": "USER_ID",
+          "asset": "usdt",
+          "amount": "1350.00",
+          "toAddress": "TQ2m...p4rX",
+      },
+  )
+  print(res.json())
+  ```
 </CodeGroup>
 
-<Callout kind="alert">
-  Обязателен `asset`; `tokenCode` опционален. Остальные поля тела приведены для примера — точную схему сверьте со [Справочником API](/api-reference) на странице `evaluate`. `vaultId` — это id Vault'а, а не его `code`.
+<Callout kind="alert" collapsed="false">
+  Обязателен `asset`; `tokenCode` опционален. Остальные поля тела приведены для примера - точную схему сверьте со [Справочником API](/api-reference) на странице `evaluate`. `vaultId` - это id Vault'а, а не его `code`.
 </Callout>
 
 ## Шаг 2. Прочитайте решение
 
-В ответе — вердикт и объяснение:
+В ответе - вердикт и объяснение:
 
 ```json
 {
@@ -97,20 +100,20 @@ print(res.json())
 }
 ```
 
-| Поле | Что означает |
-|------|--------------|
-| `decision` | итог: `allow`, `queue` или `block` |
-| `reason` | машиночитаемая причина (например, `AMOUNT_EXCEEDED`) |
-| `policyCode` | код политики, определившей исход |
-| `trace` | список сработавших политик с их `effect` |
+| Поле         | Что означает                                         |
+| ------------ | ---------------------------------------------------- |
+| `decision`   | итог: `allow`, `queue` или `block`                   |
+| `reason`     | машиночитаемая причина (например, `AMOUNT_EXCEEDED`) |
+| `policyCode` | код политики, определившей исход                     |
+| `trace`      | список сработавших политик с их `effect`             |
 
 Как использовать вердикт:
 
-| Вердикт | Что делать в UI / автоматизации |
-|---------|--------------------------------|
-| `allow` | можно сразу создавать перевод |
-| `queue` | создавать можно, но уйдёт в `awaiting_approval` — предупредите заранее |
-| `block` | показать `reason`, не давать отправить |
+| Вердикт | Что делать в UI / автоматизации                                        |
+| ------- | ---------------------------------------------------------------------- |
+| `allow` | можно сразу создавать перевод                                          |
+| `queue` | создавать можно, но уйдёт в `awaiting_approval` - предупредите заранее |
+| `block` | показать `reason`, не давать отправить                                 |
 
 ## Шаг 3. Как движок принимает решение
 
@@ -118,29 +121,29 @@ print(res.json())
 
 1. Собираются все политики пользователя в Vault'е (через членства в группах).
 2. Остаются включённые политики с типом действия, равным запрошенному.
-3. Проверяется применимость (дерево условий; пустое — «применима всегда»).
-4. Если хотя бы одна политика блокирует — итог `block`.
+3. Проверяется применимость (дерево условий; пустое - «применима всегда»).
+4. Если хотя бы одна политика блокирует - итог `block`.
 
-Тот же расчёт выполняется и при создании перевода — но там он сопровождается побочными эффектами (резерв, заявка). `evaluate` же безопасен для повторных вызовов. Подробнее — на странице [Policy Engine](/concepts/policy-engine).
+Тот же расчёт выполняется и при создании перевода - но там он сопровождается побочными эффектами (резерв, заявка). `evaluate` же безопасен для повторных вызовов. Подробнее - на странице [Policy Engine](/concepts/policy-engine).
 
-<Expandable title="Глоссарий">
-  - **evaluate** — пред-флайт проверка действия без создания операции и без резерва средств.
-  - **decision** — итоговый вердикт: `allow` / `queue` / `block`.
-  - **reason** — машиночитаемый код причины исхода (например, `AMOUNT_EXCEEDED`).
-  - **trace** — перечень политик, участвовавших в решении, с их `effect`.
-  - **deny-overrides** — принцип разрешения конфликтов: одна блокирующая политика перекрывает любые разрешающие.
-  - **применимость** — условие срабатывания политики (дерево условий); пустое дерево означает «применима всегда».
+<Expandable title="Глоссарий" default-open="false">
+  - **evaluate** - пред-флайт проверка действия без создания операции и без резерва средств.
+  - **decision** - итоговый вердикт: `allow` / `queue` / `block`.
+  - **reason** - машиночитаемый код причины исхода (например, `AMOUNT_EXCEEDED`).
+  - **trace** - перечень политик, участвовавших в решении, с их `effect`.
+  - **deny-overrides** - принцип разрешения конфликтов: одна блокирующая политика перекрывает любые разрешающие.
+  - **применимость** - условие срабатывания политики (дерево условий); пустое дерево означает «применима всегда».
 </Expandable>
 
 ## Частые ошибки
 
-| Симптом | Причина |
-|---------|---------|
-| всегда `allow`, хотя ждали блок | не передан контекст (`amount` / `asset`), политика не применилась |
-| `asset` не распознан | передан `tokenCode` вместо обязательного `asset` |
-| вердикт расходится с реальным созданием | параметры запроса отличаются — сверьте тело с фактическим вызовом перевода |
-| `401` / `403` на самом эндпоинте | проблема токена или доступа, а не политики — см. [Аутентификацию](/authentication) |
-| `vaultId` не находится | передан `code` Vault'а вместо его id |
+| Симптом                                 | Причина                                                                            |
+| --------------------------------------- | ---------------------------------------------------------------------------------- |
+| всегда `allow`, хотя ждали блок         | не передан контекст (`amount` / `asset`), политика не применилась                  |
+| `asset` не распознан                    | передан `tokenCode` вместо обязательного `asset`                                   |
+| вердикт расходится с реальным созданием | параметры запроса отличаются - сверьте тело с фактическим вызовом перевода         |
+| `401` / `403` на самом эндпоинте        | проблема токена или доступа, а не политики - см. [Аутентификацию](/authentication) |
+| `vaultId` не находится                  | передан `code` Vault'а вместо его id                                               |
 
 ## Готово, если
 
@@ -151,17 +154,21 @@ print(res.json())
 
 ## Что дальше
 
-<Columns cols={2}>
-  <Card title="Policy Engine" icon="shield-check" href="/concepts/policy-engine" horizontal>
+<Columns cols="2">
+  <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
     Как устроены правила, лимиты и исходы.
   </Card>
-  <Card title="Отправить перевод" icon="send" href="/guides/send-transfer" horizontal>
+
+  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
     Создать перевод после проверки.
   </Card>
-  <Card title="Настроить политику" icon="sliders-horizontal" href="/guides/configure-policies" horizontal>
+
+  <Card title="Настроить политику" href="/guides/configure-policies" icon="sliders-horizontal" horizontal="false">
     Собрать правило, лимит и исход.
   </Card>
-  <Card title="Справочник API" icon="code" href="/api-reference" horizontal>
+
+  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
     Точная схема `evaluate` и формат ответа.
   </Card>
 </Columns>
+
