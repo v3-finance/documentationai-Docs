@@ -1,40 +1,40 @@
 ---
-title: Создать Vault со схемой деривации
+title: Create a Vault with a derivation schema
 description: >-
-  Спроектировать оси адресов и завести Vault одним запросом - сеть, статические
-  и динамические сегменты, порядок и проверка.
+  Design your address axes and create a Vault in a single request: the
+  network, static and dynamic segments, their order, and verification.
 ---
-Vault создаётся одним запросом вместе со всей структурой деривации. Самое важное происходит до кода - на этапе проектирования осей, по которым будут различаться ваши адреса. Здесь мы спроектируем схему, заведём Vault и проверим результат. Про модель в целом - на странице [Vault и деривация](/concepts/vaults).
+A Vault is created in a single request, together with its entire derivation structure. The most important work happens before any code: designing the axes along which your addresses will differ. In this guide, we'll design a schema, create a Vault, and verify the result. For the overall model, see [Vaults and derivation](/concepts/vaults).
 
-## Что понадобится
+## Prerequisites
 
-- Адрес инстанса - в примерах `[BASE_URL]`.
-- Токен доступа для заголовка `Authorization` (см. [Аутентификацию](/authentication)).
-- Любой HTTP‑клиент: `curl`, JavaScript или Python.
+- Your instance address, shown as `[BASE_URL]` in the examples.
+- An access token for the `Authorization` header (see [Authentication](/authentication)).
+- Any HTTP client: `curl`, JavaScript, or Python.
 
-## Шаг 1. Спроектируйте оси
+## Step 1. Design the axes
 
-Решите, какими осями различаются ваши адреса. Каждая ось - это сегмент пути:
+Decide which axes your addresses will differ by. Each axis is a path segment:
 
-- **`network`** - обязательный сегмент: блокчейн и его `coinType` по BIP-44 (TRON - 195, Ethereum - 60).
-- **Статические сегменты** - закрытые списки: `purpose` (`invoices` / `settlement`), `asset` (`usdt` / `usdc`).
-- **Динамические сегменты** - целочисленный индекс на сущность: `client` (новая ветка на клиента).
+- **`network`**: a required segment: the blockchain and its BIP-44 `coinType` (TRON is 195, Ethereum is 60).
+- **Static segments**: closed lists, such as `purpose` (`invoices` / `settlement`) and `asset` (`usdt` / `usdc`).
+- **Dynamic segments**: an integer index per entity, such as `client` (a new branch per client).
 
-Порядок сегментов фиксирован и определяет форму пути. Для примера возьмём схему:
+The segment order is fixed and defines the shape of the path. As an example, let's use this schema:
 
 ```typescript
 network → purpose → asset → client
-TRON      invoices   usdt    (динамический)
+TRON      invoices   usdt    (dynamic)
           settlement usdc
 ```
 
 <Callout kind="tip" collapsed="false">
-  Оси стоит выбирать по тому, как вы ведёте учёт и пишете политики: те же сегменты станут селекторами Policy Engine и осями отчётов. Подробнее о проектировании - на странице [Vault и деривация](/concepts/vaults).
+  Choose your axes based on how you keep your books and write policies: the same segments become Policy Engine selectors and report dimensions. For more on schema design, see [Vaults and derivation](/concepts/vaults).
 </Callout>
 
-## Шаг 2. Создайте Vault
+## Step 2. Create the Vault
 
-Отправьте `POST /api/v1/vaults` с объектом `vault` (код и имя) и картой сегментов `routeMap`. Ключ `network` обязателен - его варианты попадают в реестр Network по `coinType`; остальные ключи становятся Route'ами, а их `order` нормализуется от 0 в порядке следования.
+Send `POST /api/v1/vaults` with a `vault` object (code and name) and a `routeMap` of segments. The `network` key is required, and its options are added to the Network registry by `coinType`. The other keys become Routes, and their `order` is normalized starting from 0 in the order they appear.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -89,10 +89,10 @@ TRON      invoices   usdt    (динамический)
 </CodeGroup>
 
 <Callout kind="alert" collapsed="false">
-  Структура `routeMap` показана для примера, чтобы передать смысл (сеть с `coinType`, статические варианты, динамический сегмент). Точную схему тела запроса сверьте со [Справочником API](/api-reference) на странице создания Vault'а - она источник истины.
+  The `routeMap` structure is shown for illustration, to convey the idea (a network with a `coinType`, static options, a dynamic segment). Check the exact request body schema on the create Vault page in the [API Reference](/api-reference), which is the source of truth.
 </Callout>
 
-В ответ приходит созданный Vault со всеми связями (схематично):
+The response contains the created Vault with all its relations (simplified):
 
 ```json
 {
@@ -108,11 +108,11 @@ TRON      invoices   usdt    (динамический)
 }
 ```
 
-Запомните `code` - он подставляется во все дальнейшие запросы.
+Note the `code`: it goes into every subsequent request.
 
-## Шаг 3. Проверьте структуру
+## Step 3. Verify the structure
 
-Убедитесь, что сети и сегменты собрались как задумано:
+Make sure the networks and segments were set up as intended:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -135,11 +135,11 @@ TRON      invoices   usdt    (динамический)
   ```
 </CodeGroup>
 
-`GET /api/v1/vaults/{code}` возвращает подключённые сети (по `coinType`) и Route'ы (по `order`) со всеми вариантами - это и есть ваша структура деривации.
+`GET /api/v1/vaults/{code}` returns the connected networks (by `coinType`) and Routes (by `order`) with all their options. This is your derivation structure.
 
-## Шаг 4. Соберите пробный путь
+## Step 4. Build a test path
 
-Прежде чем заводить адреса, проверьте схему, собрав канонический путь из значений сегментов:
+Before creating addresses, verify the schema by building a canonical path from segment values:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -169,46 +169,45 @@ TRON      invoices   usdt    (динамический)
   ```
 </CodeGroup>
 
-`build` вернёт путь вида `m/44/195/0/0/42` и заодно проверит схему: сеть подключена, все Route'ы присутствуют, статические варианты существуют и включены, а динамические значения - в допустимом диапазоне. Обратная операция - `derivation-path/parse`.
+`build` returns a path like `m/44/195/0/0/42` and validates the schema along the way: the network is connected, all Routes are present, the static options exist and are enabled, and the dynamic values are within the allowed range. The reverse operation is `derivation-path/parse`.
 
 <Callout kind="tip" collapsed="false">
-  Имена полей в теле `build` (значения сегментов) зависят от кодов ваших Route'ов - сверьте их со [Справочником API](/api-reference).
+  The field names in the `build` body (the segment values) depend on your Route codes. Check them in the [API Reference](/api-reference).
 </Callout>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                         | Причина                                           |
-| ------------------------------- | ------------------------------------------------- |
-| создание отклонено              | `code` или имя Vault'а уже заняты                 |
-| `routeMap` не принят            | нет обязательного ключа `network`                 |
-| сеть не распознана              | неверный `coinType` (сверьте по BIP-44/SLIP-0044) |
-| `build`: сеть не подключена     | `coinType` не входит в структуру Vault'а          |
-| `build`: вариант не найден      | статический вариант отсутствует или `disabled`    |
-| `build`: значение вне диапазона | динамическое значение не в `[0, 2^31−1]`          |
+| Symptom                                | Cause                                                   |
+| -------------------------------------- | ------------------------------------------------------- |
+| creation rejected                      | the Vault's `code` or name is already taken             |
+| `routeMap` not accepted                | the required `network` key is missing                   |
+| network not recognized                 | wrong `coinType` (check against BIP-44/SLIP-0044)       |
+| `build`: network not connected         | the `coinType` isn't part of the Vault's structure      |
+| `build`: option not found              | the static option doesn't exist or is `disabled`        |
+| `build`: value out of range            | the dynamic value isn't within `[0, 2^31−1]`            |
 
-## Готово, если
+## You're done when
 
-- `GET /api/v1/vaults/acme-otc` возвращает ваши сети и Route'ы;
-- `derivation-path/build` возвращает путь вида `m/44/195/...`;
-- `code` Vault'а сохранён для дальнейших запросов.
+- `GET /api/v1/vaults/acme-otc` returns your networks and Routes;
+- `derivation-path/build` returns a path like `m/44/195/...`;
+- you've saved the Vault's `code` for subsequent requests.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Сгенерировать адреса" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
-    Следующий шаг: завести адреса в этом Vault'е.
+  <Card title="Generate addresses" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
+    Next step: create addresses in this Vault.
   </Card>
 
-  <Card title="Vault и деривация" href="/concepts/vaults" icon="folder-tree" horizontal="false">
-    Модель деривации целиком: сеть, сегменты и пути.
+  <Card title="Vaults and derivation" href="/concepts/vaults" icon="folder-tree" horizontal="false">
+    The full derivation model: networks, segments, and paths.
   </Card>
 
-  <Card title="Обзор гайдов" href="/guides/overview" icon="compass" horizontal="false">
-    Остальные пошаговые сценарии.
+  <Card title="Guides overview" href="/guides/overview" icon="compass" horizontal="false">
+    The other step-by-step scenarios.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Точная схема создания Vault'а и derivation path.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    The exact schemas for creating a Vault and derivation paths.
   </Card>
 </Columns>
-

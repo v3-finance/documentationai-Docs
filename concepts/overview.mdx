@@ -1,72 +1,71 @@
 ---
-title: Обзор
+title: Overview
 description: >-
-  Как устроен V3 Custody и как его части: Vault, адреса, журнал, Policy Engine,
-  аппрувалы, контрагенты и Gas Station, работают вместе.
+  How V3 Custody is built and how its parts (Vaults, addresses, the ledger, the
+  Policy Engine, approvals, counterparties, and Gas Station) work together.
 ---
-Этот разде&#x43B;**&#xA0;**&#x43E;бъясняет, как V3 Custody устроен внутри и почему именно так. [Введение](/introduction) даёт общую картину за пять минут - здесь мы идём глубже: разбираем каждую опору платформы отдельно, с деталями, которые понадобятся при интеграции.
+This section explains how V3 Custody works under the hood and why it's built this way. The [Introduction](/introduction) gives you the big picture in five minutes; here we go deeper, covering each pillar of the platform separately, with the details you'll need for integration.
 
-Читать подряд необязательно - страницы самостоятельны. Но если вы только начинаете, порядок ниже даёт связный маршрут: от того, как заводятся адреса, к тому, как двигаются и учитываются деньги.
+You don't have to read the pages in order, since each one stands on its own. But if you're just getting started, the order below gives you a coherent path: from how addresses are created to how funds move and are accounted for.
 
-## Как всё связано
+## How it all connects
 
-Одна короткая цепочка проходит через весь продукт:
+A single short chain runs through the entire product:
 
-- **Vault** задаёт дерево адресов по вашей схеме деривации.
-- Каждый **адрес** - это счёт в журнале, доступ к нему изолирован и выдаётся адресно.
-- **Журнал** записывает любое движение средств двойной записью, а баланс вычисляет из проводок.
-- Перед подписью **Policy Engine** решает, можно ли двигать деньги и с чьим подтверждением.
-- Поставленные в очередь переводы проходят через **аппрувалы**, пока сумма лежит в резерве.
-- **Контрагенты** и категории добавляют бизнес-смысл - кому и зачем ушли средства.
-- **Gas Station** оплачивает комиссию, чтобы адрес работал с первой секунды.
+- A **Vault** defines an address tree based on your derivation schema.
+- Each **address** is an account in the ledger; access to it is isolated and granted per address.
+- The **ledger** records every movement of funds with double-entry accounting and computes balances from the entries.
+- Before signing, the **Policy Engine** decides whether funds can move and whose approval is needed.
+- Queued transfers go through **approvals** while the amount is held in reserve.
+- **Counterparties** and categories add business meaning: to whom funds went and why.
+- **Gas Station** pays the fees so an address works from the first second.
 
-## Что внутри раздела
+## What's in this section
 
-Каждой теме посвящена отдельная страница:
+Each topic has its own page:
 
 <Columns cols="2">
-  <Card title="Vault и деривация" href="/concepts/vaults" icon="folder-tree" horizontal="false">
-    Почему схему адресов вы проектируете сами и как сегменты становятся путями деривации.
+  <Card title="Vaults and derivation" href="/concepts/vaults" icon="folder-tree" horizontal="false">
+    Why you design the address schema yourself and how segments become derivation paths.
   </Card>
 
-  <Card title="Адреса, папки и доступ" href="/concepts/addresses" icon="wallet" horizontal="false">
-    Адрес как счёт журнала, изоляция видимости, шэринг и аудит доступа.
+  <Card title="Addresses, folders, and access" href="/concepts/addresses" icon="wallet" horizontal="false">
+    An address as a ledger account, visibility isolation, sharing, and access auditing.
   </Card>
 
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Сбалансированные проводки, available/reserved, исторические балансы и идемпотентность.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    Balanced entries, available/reserved, historical balances, and idempotency.
   </Card>
 
   <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
-    Deny-by-default, дерево условий, лимиты, whitelist и m-of-n подтверждения.
+    Deny-by-default, condition trees, limits, whitelists, and m-of-n approvals.
   </Card>
 
-  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
-    Жизненный цикл заявки, снапшот подписантов и право вето.
+  <Card title="Approvals" href="/concepts/approvals" icon="check-check" horizontal="false">
+    The approval request lifecycle, the approver snapshot, and veto rights.
   </Card>
 
-  <Card title="Контрагенты и контекст" href="/concepts/counterparties" icon="handshake" horizontal="false">
-    Сопоставление адресов, категории и связи операций (refund/reversal).
+  <Card title="Counterparties and context" href="/concepts/counterparties" icon="handshake" horizontal="false">
+    Address matching, categories, and operation links (refund/reversal).
   </Card>
 
   <Card title="Gas Station" href="/concepts/gas-station" icon="fuel" horizontal="false">
-    Единый газовый баланс, делегирование/relayer и приватность.
+    A single gas balance, delegation/relayer, and privacy.
   </Card>
 </Columns>
 
-## Прежде чем углубляться
+## Before you dive in
 
 <Columns cols="2">
-  <Card title="Введение" href="/introduction" icon="book-open" horizontal="false">
-    Общая картина: доли ключа, политики и журнал за пять минут.
+  <Card title="Introduction" href="/introduction" icon="book-open" horizontal="false">
+    The big picture: key shares, policies, and the ledger in five minutes.
   </Card>
 
-  <Card title="Быстрый старт" href="/quickstart" icon="zap" horizontal="false">
-    Первые вызовы к API - Vault, баланс, перевод.
+  <Card title="Quickstart" href="/quickstart" icon="zap" horizontal="false">
+    Your first API calls: Vault, balance, transfer.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Все эндпоинты, параметры и форматы ответов.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    All endpoints, parameters, and response formats.
   </Card>
 </Columns>
-

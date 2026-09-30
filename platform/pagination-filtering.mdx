@@ -1,23 +1,23 @@
 ---
-title: Пагинация и фильтры
+title: Pagination and filters
 description: >-
-  Как листать списки через keyset-пагинацию (cursor/nextCursor) и какие фильтры
-  общие для эндпоинтов-списков.
+  How to page through lists with keyset pagination (cursor/nextCursor) and
+  which filters are shared across list endpoints.
 ---
-Списки в V3 Custody используют **keyset-пагинацию** по курсору: вы листаете, передавая курсор предыдущей страницы. В отличие от offset, keyset устойчив к вставкам - строки не пропускаются и не дублируются между страницами.
+Lists in V3 Custody use cursor-based **keyset pagination**: you page through results by passing the cursor from the previous page. Unlike offset pagination, keyset pagination is stable under inserts, so rows are never skipped or duplicated between pages.
 
 <MermaidDiagram chart={`
 flowchart TD
-REQ["GET список?limit=N"] --> RESP["{ items, nextCursor }"]
-RESP --> Q{"nextCursor есть?"}
-Q -->|да| NEXT["GET ...?cursor=nextCursor"]
+REQ["GET list?limit=N"] --> RESP["{ items, nextCursor }"]
+RESP --> Q{"nextCursor present?"}
+Q -->|yes| NEXT["GET ...?cursor=nextCursor"]
 NEXT --> RESP
-Q -->|нет / пусто| END["Страницы кончились"]
+Q -->|no / empty| END["No more pages"]
 `} />
 
-## Keyset-пагинация
+## Keyset pagination
 
-Список возвращает элементы и курсор следующей страницы:
+A list returns its items along with the cursor for the next page:
 
 ```json
 {
@@ -26,44 +26,44 @@ Q -->|нет / пусто| END["Страницы кончились"]
 }
 ```
 
-- `cursor` - передайте сюда `nextCursor` предыдущей страницы, чтобы получить следующую.
-- `limit` - размер страницы.
-- Когда `nextCursor` пуст или отсутствует - страницы кончились.
+- `cursor`: pass the previous page's `nextCursor` here to get the next page.
+- `limit`: the page size.
+- When `nextCursor` is empty or missing, there are no more pages.
 
-## Сортировка
+## Sorting
 
-По умолчанию списки идут «сначала свежие»: убывание по временно́му ключу с `id` как tiebreaker. Курсор идёт в том же порядке:
+By default, lists are sorted newest first: descending by a time key, with `id` as a tiebreaker. The cursor follows the same order:
 
-| Список         | Ключ сортировки (убывание) |
-| -------------- | -------------------------- |
-| журнал         | `postedAt`, `id`           |
-| лента операций | `createdAt`, `id`          |
-| контрагенты    | `createdAt`                |
+| List             | Sort key (descending) |
+| ---------------- | --------------------- |
+| ledger           | `postedAt`, `id`      |
+| operations feed  | `createdAt`, `id`     |
+| counterparties   | `createdAt`           |
 
-## Общие фильтры
+## Common filters
 
-Набор зависит от эндпоинта, но встречаются одни и те же:
+The available set depends on the endpoint, but the same filters come up repeatedly:
 
-| Фильтр                 | Значение                                      | Где встречается            |
-| ---------------------- | --------------------------------------------- | -------------------------- |
-| `from` / `to`          | временно́е окно (по `createdAt` / `postedAt`) | журнал, лента, контрагенты |
-| `direction`            | `in` / `out`                                  | лента операций             |
-| `token`                | ограничить токеном                            | балансы, адреса, журнал    |
-| `status`               | статус                                        | заявки, операции           |
-| `search`               | подстрока                                     | адреса, контрагенты        |
-| `access=shared`        | только доступное вам                          | адреса                     |
-| `mine` / `pendingMine` | мои / ждут моего голоса                       | заявки                     |
-| `userId`               | admin: чью активность показать                | списки с активностью       |
+| Filter                 | Meaning                                    | Where it's used                  |
+| ---------------------- | ------------------------------------------ | -------------------------------- |
+| `from` / `to`          | time window (by `createdAt` / `postedAt`)  | ledger, feed, counterparties     |
+| `direction`            | `in` / `out`                               | operations feed                  |
+| `token`                | limit to a token                           | balances, addresses, ledger      |
+| `status`               | status                                     | approval requests, operations    |
+| `search`               | substring                                  | addresses, counterparties        |
+| `access=shared`        | only what's shared with you                | addresses                        |
+| `mine` / `pendingMine` | mine / awaiting my vote                    | approval requests                |
+| `userId`               | admin: whose activity to show              | lists with activity              |
 
 <Callout kind="info" collapsed="false">
-  Доступные фильтры различаются по эндпоинтам - точный список смотрите в [Справочнике API](/api-reference) на странице конкретного списка.
+  Available filters vary by endpoint. See the page for the specific list in the [API Reference](/api-reference) for the exact set.
 </Callout>
 
-## Пример: пройти все страницы
+## Example: iterate through all pages
 
 <CodeGroup show-lines="true">
   ```bash
-  # одна страница; для следующей подставьте nextCursor в ?cursor=
+  # a single page; for the next one, pass nextCursor as ?cursor=
   curl "[BASE_URL]/api/v1/vaults/acme-otc/history?direction=in&limit=100" \
     -H "Authorization: Bearer $V3_TOKEN"
   ```
@@ -104,41 +104,40 @@ Q -->|нет / пусто| END["Страницы кончились"]
   ```
 </CodeGroup>
 
-<Expandable title="Глоссарий" default-open="false">
-  - **keyset-пагинация** - листание по курсору предыдущей страницы (устойчиво к вставкам, в отличие от offset).
-  - **cursor** - курсор запрашиваемой страницы (`nextCursor` предыдущей).
-  - **nextCursor** - курсор следующей страницы; пустой - конец списка.
-  - **limit** - размер страницы.
-  - **tiebreaker** - `id` для однозначного порядка при равном временно́м ключе.
+<Expandable title="Glossary" default-open="false">
+  - **keyset pagination**: paging by the previous page's cursor (stable under inserts, unlike offset).
+  - **cursor**: the cursor of the requested page (the previous page's `nextCursor`).
+  - **nextCursor**: the cursor of the next page; empty means the end of the list.
+  - **limit**: the page size.
+  - **tiebreaker**: `id`, which guarantees a deterministic order when time keys are equal.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                           | Причина                                                       |
-| --------------------------------- | ------------------------------------------------------------- |
-| дубли / пропуски между страницами | ожидали offset - здесь keyset, листайте курсором              |
-| бесконечный цикл                  | `cursor` не обновляется из `nextCursor`                       |
-| курсор «не подходит»              | `cursor` от другого списка/сортировки - курсоры не переносимы |
-| фильтр игнорируется               | фильтр не поддержан этим эндпоинтом (см. Справочник)          |
-| порядок не тот                    | список по умолчанию «сначала свежие» (убывание)               |
+| Symptom                                | Cause                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------ |
+| duplicates or gaps between pages       | you expected offset pagination; this is keyset, so page with the cursor        |
+| infinite loop                          | `cursor` isn't updated from `nextCursor`                                        |
+| cursor "doesn't work"                  | the `cursor` came from a different list or sort order; cursors aren't portable  |
+| filter is ignored                      | this endpoint doesn't support the filter (see the API Reference)               |
+| unexpected order                       | lists are sorted newest first (descending) by default                          |
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Лента операций и журнал — пагинируемые списки.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    The operations feed and the ledger are both paginated lists.
   </Card>
 
-  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
-    Фильтры mine / pendingMine / status.
+  <Card title="Approvals" href="/concepts/approvals" icon="check-check" horizontal="false">
+    The mine / pendingMine / status filters.
   </Card>
 
-  <Card title="Модель ошибок" href="/platform/errors" icon="alert-circle" horizontal="false">
-    Коды ошибок при неверных параметрах.
+  <Card title="Error model" href="/platform/errors" icon="alert-circle" horizontal="false">
+    Error codes for invalid parameters.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Фильтры и курсоры по каждому списку.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Filters and cursors for each list.
   </Card>
 </Columns>
-

@@ -1,42 +1,42 @@
 ---
-title: Аппрувалы
+title: Approvals
 description: >-
-  Жизненный цикл заявки на подтверждение - снапшот подписантов на момент
-  создания, m-of-n, veto и возврат резерва.
+  The approval request lifecycle: an approver snapshot taken at creation,
+  m-of-n, veto, and returning the reserve.
 ---
-Когда Policy Engine возвращает `queue`, действие не выполняется сразу - оно превращается в **заявку на подтверждение** и ждёт нужного числа одобрений. На этой странице - как заявка живёт от создания до разрешения. Информацию о том, кто и почему ставит действие в очередь вы найдете на странице [Policy Engine](/concepts/policy-engine).
+When the Policy Engine returns `queue`, the action isn't executed right away. Instead, it becomes an **approval request** and waits for the required number of approvals. This page covers how a request moves from creation to resolution. For who puts an action in the queue and why, see [Policy Engine](/concepts/policy-engine).
 
-## Откуда берётся заявка
+## Where an approval request comes from
 
-Действие, меняющее состояние (перевод, удаление адреса, изменение контрагента), возвращает один из двух ответов:
+A state-changing action (a transfer, address deletion, a counterparty change) returns one of two responses:
 
-- **`200`** - политика разрешила (`allow`), действие выполнено сразу.
-- **`202`** - политика поставила в очередь (`queue`), создана заявка. В ответе - её идентификатор.
+- **`200`**: the policy allowed the action (`allow`), and it was executed immediately.
+- **`202`**: the policy queued the action (`queue`), and an approval request was created. The response contains its id.
 
-Заявка несёт **снапшот решения** на момент создания: какая политика решила (`decisionPolicyId`), кто вправе подтверждать и какой порог. Поэтому поздние правки политики не меняют уже созданные заявки.
+The request carries a **snapshot of the decision** as of its creation: which policy made the decision (`decisionPolicyId`), who is allowed to approve, and what the threshold is. That's why later policy edits don't affect requests that already exist.
 
-## Жизненный цикл
+## Lifecycle
 
 <MermaidDiagram chart={`
 flowchart TD
-P["PENDING (ждёт голосов)"]
-P -->|набран порог approve| A["APPROVED (действие применено)"]
-P -->|reject или stale| R["REJECTED"]
-P -->|инициатор отменил| C["CANCELLED"]
+P["PENDING (awaiting votes)"]
+P -->|approval threshold reached| A["APPROVED (action applied)"]
+P -->|reject or stale| R["REJECTED"]
+P -->|initiator cancelled| C["CANCELLED"]
 `} />
 
-| Статус      | Что значит                               | Резерв (для перевода)      |
-| ----------- | ---------------------------------------- | -------------------------- |
-| `PENDING`   | ждёт голосов                             | держится в `reserved`      |
-| `APPROVED`  | набран порог, действие применено         | списывается                |
-| `REJECTED`  | вето одобряющего или устаревание (stale) | возвращается в `available` |
-| `CANCELLED` | инициатор отменил (перевод - `/cancel`)  | возвращается в `available` |
+| Status      | Meaning                                         | Reserve (for transfers)       |
+| ----------- | ----------------------------------------------- | ----------------------------- |
+| `PENDING`   | awaiting votes                                  | held in `reserved`            |
+| `APPROVED`  | threshold reached, action applied               | debited                       |
+| `REJECTED`  | vetoed by an approver, or stale                 | returned to `available`       |
+| `CANCELLED` | cancelled by the initiator (transfers: `/cancel`) | returned to `available`     |
 
-## Как голосуют (m-of-n)
+## How voting works (m-of-n)
 
-Голос подаёт член approver-группы заявки. Инициатор не голосует за собственную заявку (если это не разрешено политикой явно), и у каждого - один голос. Например, при пороге **2 из 3** нужно два `approve`; один `reject` - вето, заявка сразу `REJECTED`.
+Votes are cast by members of the request's approver group. The initiator can't vote on their own request (unless the policy explicitly allows it), and everyone gets one vote. For example, with a **2 of 3** threshold, two `approve` votes are needed; a single `reject` is a veto, and the request immediately becomes `REJECTED`.
 
-Голосование по заявке:
+Voting on a request:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -66,82 +66,81 @@ P -->|инициатор отменил| C["CANCELLED"]
   ```
 </CodeGroup>
 
-Финальный `approve`, добравший порог, **применяет целевое действие в этом же запросе**. В ответе - финальный статус и `resolvedResultId` (или `applyError`, если применить не удалось).
+The final `approve` that reaches the threshold **applies the target action in the same request**. The response contains the final status and a `resolvedResultId` (or an `applyError` if the action couldn't be applied).
 
-Есть две поверхности голосования:
+There are two voting surfaces:
 
-| Поверхность                        | Для чего             | Статус ожидания     |
-| ---------------------------------- | -------------------- | ------------------- |
-| `approval-requests/{id}/approvals` | любые gated-действия | `PENDING`           |
-| `transfers/{id}/approvals`         | только переводы      | `awaiting_approval` |
+| Surface                            | Used for               | Pending status         |
+| ---------------------------------- | ---------------------- | ---------------------- |
+| `approval-requests/{id}/approvals` | any gated action       | `PENDING`              |
+| `transfers/{id}/approvals`         | transfers only         | `awaiting_approval`    |
 
 <Callout kind="alert" collapsed="false">
-  `reject` - это вето: одного отклонения достаточно, чтобы заявка стала `REJECTED`. Порог набирается только из `approve`. Имя поля голоса (здесь - `decision`) сверьте со [Справочником API](/api-reference).
+  `reject` is a veto: a single rejection is enough to make the request `REJECTED`. The threshold is reached only with `approve` votes. Check the name of the vote field (`decision` here) in the [API Reference](/api-reference).
 </Callout>
 
-## Снапшот и защита от гонок
+## Snapshots and race protection
 
-Два механизма делают исход предсказуемым:
+Two mechanisms make the outcome predictable:
 
-- **Снапшот подписантов.** Заявка помнит одобряющих и порог такими, какими они были в момент создания. Изменили политику после - уже открытые заявки это не затронет.
-- **Optimistic-lock.** Финальный `approve` применяет действие атомарно. Если целевой объект успел измениться с момента создания заявки, она помечается `REJECTED` (stale), а не применяет устаревшее действие. Так исключены гонки между параллельными изменениями.
+- **Approver snapshot.** A request remembers the approvers and threshold as they were at the time of creation. If the policy changes afterward, requests that are already open aren't affected.
+- **Optimistic lock.** The final `approve` applies the action atomically. If the target object has changed since the request was created, the request is marked `REJECTED` (stale) instead of applying an outdated action. This rules out races between concurrent changes.
 
-## Композитные заявки
+## Composite requests
 
-Несколько связанных действий можно оформить как одну заявку с единым флоу одобрения:
+Several related actions can be combined into a single request with one approval flow:
 
-- `POST /api/v1/vaults/{code}/approval-requests/composite` - цепочка шагов как единая сущность. Каждый шаг гейтится **своей** политикой; голос `approve` засчитывается тем шагам, где голосующий уполномочен; заявка становится `APPROVED`, когда каждый шаг набрал свой порог. `reject` - вето всей цепочки. Если все шаги разрешены сразу, цепочка применяется без заявки (`applied: true`).
+- `POST /api/v1/vaults/{code}/approval-requests/composite` creates a chain of steps as a single entity. Each step is gated by **its own** policy; an `approve` vote counts toward the steps the voter is authorized for, and the request becomes `APPROVED` once every step reaches its own threshold. A `reject` vetoes the entire chain. If all steps are allowed immediately, the chain is applied without a request (`applied: true`).
 
-## Где смотреть заявки
+## Where to find approval requests
 
-- `GET /api/v1/vaults/{code}/approval-requests` - заявки, видимые вам (как инициатору, одобряющему или админу).
-- `GET /api/v1/vaults/{code}/approval-requests/{id}` - детали одной заявки.
+- `GET /api/v1/vaults/{code}/approval-requests` returns the requests visible to you (as the initiator, an approver, or an admin).
+- `GET /api/v1/vaults/{code}/approval-requests/{id}` returns the details of a single request.
 
-Фильтры ленты:
+Feed filters:
 
-| Фильтр                                            | Что фильтрует                                     |
-| ------------------------------------------------- | ------------------------------------------------- |
-| `status`                                          | `PENDING` / `APPROVED` / `REJECTED` / `CANCELLED` |
-| `action`                                          | тип действия                                      |
-| `mine=true`                                       | где я инициатор                                   |
-| `pendingMine=true`                                | что ждёт моего голоса                             |
-| `from` / `to`                                     | окно по времени создания                          |
-| `resolvedFrom` / `resolvedTo`                     | окно по времени разрешения                        |
-| `initiatorId` / `approverId` / `decisionPolicyId` | по участникам и политике                          |
+| Filter                                            | What it filters                                     |
+| ------------------------------------------------- | --------------------------------------------------- |
+| `status`                                          | `PENDING` / `APPROVED` / `REJECTED` / `CANCELLED`   |
+| `action`                                          | action type                                         |
+| `mine=true`                                       | requests where I'm the initiator                    |
+| `pendingMine=true`                                | requests awaiting my vote                           |
+| `from` / `to`                                     | time window by creation time                        |
+| `resolvedFrom` / `resolvedTo`                     | time window by resolution time                      |
+| `initiatorId` / `approverId` / `decisionPolicyId` | by participant and policy                           |
 
 <Callout kind="tip" collapsed="false">
-  `pendingMine=true` отвечает на вопрос «что ждёт именно моего голоса» - удобно для дашборда одобряющего.
+  `pendingMine=true` answers the question "what's waiting for my vote specifically," which is handy for an approver's dashboard.
 </Callout>
 
-## Термины
+## Terms
 
-<Expandable title="Словарь аппрувалов" default-open="false">
-  - **Заявка (approval request)** - отложенное действие, ждущее подтверждений.
-  - **approver-группа** - кто вправе голосовать по заявке.
-  - **`threshold`** - сколько `approve` нужно (m из n).
-  - **veto** - один `reject` отклоняет заявку.
-  - **stale** - цель изменилась с момента создания → заявка `REJECTED`, действие не применяется.
-  - **Композитная заявка** - цепочка шагов, каждый под своей политикой, как единое целое.
-  - **`decisionPolicyId`** - политика, которая поставила действие в очередь (в снапшоте заявки).
+<Expandable title="Approvals glossary" default-open="false">
+  - **Approval request**: a deferred action awaiting approvals.
+  - **Approver group**: who is allowed to vote on the request.
+  - **`threshold`**: how many `approve` votes are needed (m of n).
+  - **Veto**: a single `reject` rejects the request.
+  - **Stale**: the target changed after the request was created → the request is `REJECTED` and the action isn't applied.
+  - **Composite request**: a chain of steps, each under its own policy, treated as a single unit.
+  - **`decisionPolicyId`**: the policy that queued the action (stored in the request's snapshot).
 </Expandable>
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
-    approve и cancel перевода на практике.
+  <Card title="Send a transfer" href="/guides/send-transfer" icon="send" horizontal="false">
+    Approving and cancelling a transfer in practice.
   </Card>
 
   <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
-    Кто и почему ставит действие в очередь.
+    Who puts an action in the queue and why.
   </Card>
 
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Резерв и возврат средств при отклонении.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    The reserve and returning funds on rejection.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Заявки, голосование и композитные цепочки.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Approval requests, voting, and composite chains.
   </Card>
 </Columns>
-

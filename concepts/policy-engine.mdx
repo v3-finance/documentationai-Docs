@@ -1,57 +1,58 @@
 ---
 title: Policy Engine
 description: >-
-  Deny-by-default движок, который до подписи решает, можно ли двигать деньги и с
-  чьим подтверждением: дерево условий, лимиты, whitelist и m-of-n.
+  A deny-by-default engine that decides, before signing, whether funds can
+  move and whose approval is needed: condition trees, limits, whitelists, and
+  m-of-n.
 ---
-Policy Engine - это контур, через который проходит **каждое** действие с деньгами, прежде чем что-либо будет подписано: перевод, создание адреса, изменение контрагента. Он отвечает на вопрос «можно ли это сделать и на каких условиях», и делает это **до** того, как MPC-ноды соберут подпись.
+The Policy Engine is the layer that **every** action involving funds passes through before anything is signed: a transfer, address creation, a counterparty change. It answers the question "can this be done, and under what conditions," and it does so **before** the MPC nodes produce a signature.
 
-Движок работает по принципу **deny-by-default**: по умолчанию не разрешено ничего, действие проходит только если его разрешает политика.
+The engine follows the **deny-by-default** principle: nothing is allowed by default, and an action goes through only if a policy allows it.
 
-## Как принимается решение
+## How a decision is made
 
-Ядро движка - эндпоинт `POST /api/v1/evaluate`. Он собирает применимые к пользователю политики и выносит вердикт:
+The core of the engine is the `POST /api/v1/evaluate` endpoint. It collects the policies that apply to the user and returns a verdict:
 
 <Steps>
-  <Step title="Собираются политики пользователя" icon="users" title-type="p">
-    Все политики, доступные пользователю в этом Vault'е через его членства в группах. Ваши права - это объединение политик ваших групп.
+  <Step title="The user's policies are collected" icon="users" title-type="p">
+    All policies available to the user in this Vault through their group memberships. Your permissions are the union of your groups' policies.
   </Step>
 
-  <Step title="Отбираются подходящие" icon="filter" title-type="p">
-    Остаются только включённые (`enabled`) политики с типом действия, равным запрошенному (`actionType = action`).
+  <Step title="Matching policies are selected" icon="filter" title-type="p">
+    Only enabled (`enabled`) policies whose action type matches the requested one (`actionType = action`) are kept.
   </Step>
 
-  <Step title="Проверяется применимость" icon="git-branch" title-type="p">
-    У каждой политики - булево дерево условий (`condition`: `and` / `or` / `not` / лист). `condition=null` означает «применима всегда».
+  <Step title="Applicability is checked" icon="git-branch" title-type="p">
+    Each policy has a boolean condition tree (`condition`: `and` / `or` / `not` / leaf). `condition=null` means "always applies."
   </Step>
 
-  <Step title="Считается итог (deny-overrides)" icon="shield" title-type="p">
-    Если хотя бы одна применимая политика блокирует - итог `block`, что бы ни разрешали остальные. Запрет всегда сильнее разрешения.
+  <Step title="The outcome is calculated (deny-overrides)" icon="shield" title-type="p">
+    If at least one applicable policy blocks, the outcome is `block`, no matter what the others allow. A denial always overrides a permission.
   </Step>
 </Steps>
 
 <MermaidDiagram chart={`
 flowchart TD
-S["Политики пользователя (через группы)"] --> F["Фильтр: enabled + actionType"]
-F --> A["Применимость: дерево condition"]
-A --> B{"Есть block?"}
-B -->|да| BLOCK["block"]
-B -->|нет| Q{"Есть queue?"}
-Q -->|да| QUEUE["queue"]
-Q -->|нет| ALLOW["allow"]
+S["User's policies (via groups)"] --> F["Filter: enabled + actionType"]
+F --> A["Applicability: condition tree"]
+A --> B{"Any block?"}
+B -->|yes| BLOCK["block"]
+B -->|no| Q{"Any queue?"}
+Q -->|yes| QUEUE["queue"]
+Q -->|no| ALLOW["allow"]
 `} />
 
-Поскольку `evaluate` ничего не меняет, его удобно вызывать заранее, чтобы проверить перевод до создания.
+Since `evaluate` doesn't change anything, it's convenient to call it in advance to check a transfer before creating it.
 
-## Три исхода: allow, queue, block
+## Three outcomes: allow, queue, block
 
-| Исход   | Что значит          | Что происходит                       |
-| ------- | ------------------- | ------------------------------------ |
-| `allow` | разрешено           | действие выполняется сразу           |
-| `queue` | нужно подтверждение | создаётся заявка; сумма в `reserved` |
-| `block` | запрещено           | действие не выполняется (`403`)      |
+| Outcome | Meaning             | What happens                                       |
+| ------- | ------------------- | -------------------------------------------------- |
+| `allow` | allowed             | the action is executed immediately                 |
+| `queue` | approval required   | an approval request is created; the amount is `reserved` |
+| `block` | forbidden           | the action isn't executed (`403`)                  |
 
-Вместе с решением приходит объяснение - не «отказано», а **почему**:
+Each decision comes with an explanation: not just "denied," but **why**:
 
 ```json
 {
@@ -65,20 +66,20 @@ Q -->|нет| ALLOW["allow"]
 }
 ```
 
-`reason` - машиночитаемая причина, `trace` - список сработавших политик с их `effect`. Поэтому на вопрос «почему заблокировано» вы отвечаете запросом, а не расследованием.
+`reason` is a machine-readable reason, and `trace` is the list of matched policies with their `effect`. So answering "why was this blocked" takes a query, not an investigation.
 
-## Из чего состоит политика
+## What a policy is made of
 
-У политики есть эффект (`allow` или `block`), применимость (дерево условий), правила с селекторами, лимиты, а также owner-группа и approver-группа.
+A policy has an effect (`allow` or `block`), applicability (a condition tree), rules with selectors, limits, and an owner group and approver group.
 
-### Условие vs селектор
+### Condition vs. selector
 
-Два механизма легко перепутать:
+These two mechanisms are easy to confuse:
 
-- **`condition`** - _когда_ политика вообще применяется. Это булево дерево (`and` / `or` / `not` / лист); `null` = всегда.
-- **Селекторы** - _по каким осям_ правило сопоставляет действие: сеть, актив, назначение, отправитель, получатель. Это те же сегменты, что и в дереве Vault'а (см. [Vault и деривация](/concepts/vaults)), поэтому правило пишется по смыслу, а не перечислением адресов.
+- **`condition`** defines _when_ the policy applies at all. It's a boolean tree (`and` / `or` / `not` / leaf); `null` means always.
+- **Selectors** define _along which axes_ a rule matches an action: network, asset, purpose, sender, recipient. These are the same segments as in the Vault's tree (see [Vaults and derivation](/concepts/vaults)), so rules are written by meaning rather than by listing addresses.
 
-Пример дерева `condition` (условно):
+An example `condition` tree (simplified):
 
 ```typescript
 and
@@ -86,101 +87,100 @@ and
 └── amount > 10000
 ```
 
-Такое условие делает политику применимой только к переводам USDT свыше 10 000.
+This condition makes the policy apply only to USDT transfers over 10,000.
 
-Полезные эндпоинты:
+Useful endpoints:
 
-- `GET /api/v1/policies/{id}` - политика со всеми правилами и селекторами, owner- и approver-группами.
-- `GET /api/v1/me/allowed-segments` - какие значения сегментов разрешены вам для действия. Это объединение по всем вашим `allow`-политикам: из селекторов отправителя (`senderPattern`) извлекаются разрешённые значения; политика без `senderPattern` разрешает всё (`*`), а `block`-политики здесь не учитываются.
+- `GET /api/v1/policies/{id}` returns a policy with all its rules and selectors, plus its owner and approver groups.
+- `GET /api/v1/me/allowed-segments` returns which segment values you're allowed to use for an action. It's the union across all your `allow` policies: allowed values are extracted from sender selectors (`senderPattern`); a policy without a `senderPattern` allows everything (`*`), and `block` policies aren't taken into account here.
 
-## Лимиты и whitelist
+## Limits and whitelists
 
-Лимиты ограничивают суммы. При превышении движок возвращает `block` или `queue` с причиной вроде `AMOUNT_EXCEEDED`. Типичные виды лимитов:
+Limits cap amounts. When a limit is exceeded, the engine returns `block` or `queue` with a reason such as `AMOUNT_EXCEEDED`. Typical kinds of limits:
 
-| Тип лимита   | Что ограничивает                                |
-| ------------ | ----------------------------------------------- |
-| на операцию  | максимум одной операции                         |
-| за период    | сумму за скользящее окно времени                |
-| накопительно | суммарный оборот (текущая операция учитывается) |
+| Limit type     | What it caps                                                |
+| -------------- | ----------------------------------------------------------- |
+| per operation  | the maximum for a single operation                          |
+| per period     | the total over a rolling time window                        |
+| cumulative     | total volume (the current operation is included)            |
 
-**Whitelist** - это `allow`-правило с селектором получателя: разрешены только перечисленные получатели, всё остальное запрещено (следствие deny-by-default).
+A **whitelist** is an `allow` rule with a recipient selector: only the listed recipients are allowed, and everything else is forbidden (a consequence of deny-by-default).
 
 <Callout kind="alert" collapsed="false">
-  Таксономия лимитов выше - от позиционирования продукта. Точная схема лимитов и селекторов — в [Справочнике API](/api-reference). Здесь описан смысл правил, а не формат их записи.
+  The limit taxonomy above comes from the product positioning. The exact schema for limits and selectors is in the [API Reference](/api-reference). This page describes what the rules mean, not how they're written.
 </Callout>
 
-## Пример политики
+## Example policy
 
-Проиллюстрируем на связке правил (условно):
+Here's an illustration using a set of rules (simplified):
 
-- **Лимит с аппрувом.** Переводы `usdt` в `tron` на сумму свыше 10 000 → `queue` с порогом 2 из approver-группы.
-- **Whitelist получателей.** `allow`-правило с селектором получателя разрешает только адреса из списка контрагентов.
-- **Всё остальное** по умолчанию запрещено, пока нет разрешающей политики.
+- **Limit with approval.** `usdt` transfers on `tron` over 10,000 → `queue` with a threshold of 2 from the approver group.
+- **Recipient whitelist.** An `allow` rule with a recipient selector allows only addresses from the counterparty list.
+- **Everything else** is forbidden by default until an allowing policy exists.
 
-Попытка отправить 15 000 USDT вернёт `decision: queue`, `reason` вроде `AMOUNT_EXCEEDED` и `trace` со сработавшей политикой лимита. А перевод на адрес вне whitelist — `block`.
+An attempt to send 15,000 USDT returns `decision: queue`, a `reason` such as `AMOUNT_EXCEEDED`, and a `trace` with the matched limit policy. A transfer to an address outside the whitelist returns `block`.
 
 <Callout kind="info" collapsed="false">
-  Пример условный - точная запись правил и порогов в [Справочнике API](/api-reference).
+  This example is simplified. The exact format for rules and thresholds is in the [API Reference](/api-reference).
 </Callout>
 
-## Подтверждения (m-of-n)
+## Approvals (m-of-n)
 
-Когда итог - `queue`, решение несёт параметры одобрения:
+When the outcome is `queue`, the decision carries approval parameters:
 
-- **`threshold`** - сколько подтверждений нужно (m из n).
-- **approver-группа** - кто вправе подтверждать.
-- **`adminBypass`** - админ-инициатор выполняет действие без заявки.
-- **`allowInitiatorApproval`** - может ли инициатор голосовать за собственную заявку.
+- **`threshold`**: how many approvals are needed (m of n).
+- **approver group**: who is allowed to approve.
+- **`adminBypass`**: an admin initiator executes the action without an approval request.
+- **`allowInitiatorApproval`**: whether the initiator can vote on their own request.
 
-Один `reject` - это вето. Несколько связанных действий можно оформить **композитной заявкой**: каждый шаг гейтится своей политикой, а отклонение любого шага отклоняет всю цепочку. Жизненный цикл заявок разбирается отдельно, в разделе про аппрувалы.
+A single `reject` is a veto. Several related actions can be combined into a **composite request**: each step is gated by its own policy, and rejecting any step rejects the entire chain. The approval request lifecycle is covered separately, in the section on approvals.
 
-## Версии: ничего не теряется
+## Versions: nothing is lost
 
-Политики не перезаписываются «поверх» - каждое изменение фиксируется как новая редакция:
+Policies are never overwritten in place; every change is recorded as a new revision:
 
-- `GET /api/v1/policies/{id}/versions` - append-only история. Любая правка (лимиты, одобряющие, условие) порождает версию со снапшотом решающей части: `effect`, `condition`, `approval`, `limits`, `approvers`. Поле `reason` показывает причину версии (`created` / `updated` / `backfill`).
+- `GET /api/v1/policies/{id}/versions` returns an append-only history. Any edit (limits, approvers, condition) creates a version with a snapshot of the decision-making part: `effect`, `condition`, `approval`, `limits`, `approvers`. The `reason` field shows why the version was created (`created` / `updated` / `backfill`).
 
 <Callout kind="info" collapsed="false">
-  Заявка запоминает правило на момент своего создания. Поэтому поздние изменения политики не переписывают уже созданные заявки задним числом - подписанты и порог остаются такими, какими были в момент запроса.
+  An approval request remembers the rule as it was when the request was created. That's why later policy changes don't retroactively rewrite existing requests: the approvers and threshold stay as they were at the time of the request.
 </Callout>
 
-## Где действует движок
+## Where the engine applies
 
-Policy Engine гейтит не только переводы. У каждого действия свой `actionType` - создание адреса (`create_address`), архивация контрагента (`counterparty_archive`) и другие; все проходят через один движок. Списки политик:
+The Policy Engine gates more than just transfers. Each action has its own `actionType`, such as address creation (`create_address`), counterparty archiving (`counterparty_archive`), and others; all of them go through the same engine. Policy lists:
 
-- `GET /api/v1/policies?vaultId=...` (admin) или `GET /api/v1/vaults/{code}/policies` - политики Vault'а.
-- `GET /api/v1/policy-groups/{id}/policies` и `/access` - политики и доступ группы.
+- `GET /api/v1/policies?vaultId=...` (admin) or `GET /api/v1/vaults/{code}/policies` returns a Vault's policies.
+- `GET /api/v1/policy-groups/{id}/policies` and `/access` return a group's policies and access.
 
-## Термины
+## Terms
 
-<Expandable title="Словарь Policy Engine" default-open="false">
-  - **Политика** - правило с эффектом (`allow`/`block`), применимостью и (для `queue`) параметрами одобрения; живёт в группе политик.
-  - **Правило (rule)** - часть политики с селекторами и лимитами.
-  - **Селектор** - сопоставление действия по оси (сеть, актив, отправитель, получатель…).
-  - **`condition`** - булево дерево применимости политики.
-  - **`effect`** - `allow` или `block`.
-  - **`senderPattern`** - селектор отправителя; из него собираются разрешённые сегменты (`allowed-segments`).
-  - **`threshold`** - сколько подтверждений нужно (m из n).
-  - **Группа политик** - набор политик; членство в ней даёт пользователю права.
+<Expandable title="Policy Engine glossary" default-open="false">
+  - **Policy**: a rule with an effect (`allow`/`block`), applicability, and (for `queue`) approval parameters; it lives in a policy group.
+  - **Rule**: the part of a policy with selectors and limits.
+  - **Selector**: matching an action along an axis (network, asset, sender, recipient…).
+  - **`condition`**: a boolean tree defining a policy's applicability.
+  - **`effect`**: `allow` or `block`.
+  - **`senderPattern`**: the sender selector; allowed segments (`allowed-segments`) are derived from it.
+  - **`threshold`**: how many approvals are needed (m of n).
+  - **Policy group**: a set of policies; membership in it grants a user permissions.
 </Expandable>
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Пред-проверить перевод" href="/guides/evaluate-transfer" icon="search-check" horizontal="false">
-    `evaluate` до создания операции.
+  <Card title="Evaluate a transfer" href="/guides/evaluate-transfer" icon="search-check" horizontal="false">
+    `evaluate` before creating an operation.
   </Card>
 
-  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
-    Жизненный цикл заявки при `queue`.
+  <Card title="Approvals" href="/concepts/approvals" icon="check-check" horizontal="false">
+    The approval request lifecycle on `queue`.
   </Card>
 
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Резерв, состояния баланса и неизменяемость.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    The reserve, balance states, and immutability.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    evaluate, политики, версии и группы.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    evaluate, policies, versions, and groups.
   </Card>
 </Columns>
-

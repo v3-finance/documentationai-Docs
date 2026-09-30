@@ -1,33 +1,34 @@
 ---
-title: Пред-проверить перевод
+title: Evaluate a transfer
 description: >-
-  Проверить перевод через POST /evaluate до создания операции - узнать
-  allow/queue/block, причину и сработавшие политики, ничего не меняя.
+  Check a transfer with POST /evaluate before creating an operation: get
+  allow/queue/block, the reason, and the matched policies without changing
+  anything.
 ---
-Перед тем как создавать перевод, можно спросить Policy Engine: «пройдёт ли это?» - не создавая ничего и не резервируя средства. `evaluate` возвращает тот же вердикт `allow` / `queue` / `block` с причиной и списком сработавших политик. Удобно для пред-флайт проверок в UI и автоматизации. Про сам движок - на странице [Policy Engine](/concepts/policy-engine).
+Before creating a transfer, you can ask the Policy Engine "will this go through?" without creating anything or reserving funds. `evaluate` returns the same `allow` / `queue` / `block` verdict, along with the reason and the list of matched policies. It's useful for preflight checks in UIs and automation. For the engine itself, see [Policy Engine](/concepts/policy-engine).
 
-Как `evaluate` приходит к вердикту (тот же расчёт, что и при создании перевода, но без побочных эффектов):
+How `evaluate` reaches a verdict (the same calculation as when creating a transfer, but with no side effects):
 
 <MermaidDiagram chart={`
 flowchart TD
-Q["POST /evaluate — ничего не создаёт"] --> P["Собрать политики пользователя в Vault"]
-P --> F["Оставить включённые; тип действия = запрошенному"]
-F --> A["Проверить применимость (дерево условий)"]
-A --> D{"Есть блокирующая?"}
-D -->|да| BL["block + reason + trace"]
-D -->|нет, но есть очередь| QU["queue (нужен аппрувал)"]
-D -->|нет| AL["allow"]
+Q["POST /evaluate — creates nothing"] --> P["Collect the user's policies in the Vault"]
+P --> F["Keep enabled ones; action type = requested"]
+F --> A["Check applicability (condition tree)"]
+A --> D{"Any blocking policy?"}
+D -->|yes| BL["block + reason + trace"]
+D -->|no, but a queue policy| QU["queue (approval required)"]
+D -->|no| AL["allow"]
 `} />
 
-## Что понадобится
+## Prerequisites
 
-- Vault (`vaultId`) и пользователь (`userId`), от лица которого проверяется действие.
-- Токен доступа (см. [Аутентификацию](/authentication)).
-- Параметры предполагаемого действия: `asset`, `amount`, `toAddress`.
+- A Vault (`vaultId`) and the user (`userId`) on whose behalf the action is checked.
+- An access token (see [Authentication](/authentication)).
+- The parameters of the intended action: `asset`, `amount`, `toAddress`.
 
-## Шаг 1. Отправьте запрос на оценку
+## Step 1. Send an evaluation request
 
-`POST /api/v1/evaluate` - это топ-левел эндпоинт (не внутри `/vaults/{code}`). Он ничего не создаёт - только считает вердикт.
+`POST /api/v1/evaluate` is a top-level endpoint (not under `/vaults/{code}`). It doesn't create anything; it only calculates the verdict.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -81,12 +82,12 @@ D -->|нет| AL["allow"]
 </CodeGroup>
 
 <Callout kind="alert" collapsed="false">
-  Обязателен `asset`; `tokenCode` опционален. Остальные поля тела приведены для примера - точную схему сверьте со [Справочником API](/api-reference) на странице `evaluate`. `vaultId` - это id Vault'а, а не его `code`.
+  `asset` is required; `tokenCode` is optional. The other body fields are for illustration only. Check the exact schema on the `evaluate` page in the [API Reference](/api-reference). `vaultId` is the Vault's id, not its `code`.
 </Callout>
 
-## Шаг 2. Прочитайте решение
+## Step 2. Read the decision
 
-В ответе - вердикт и объяснение:
+The response contains the verdict and an explanation:
 
 ```json
 {
@@ -100,75 +101,74 @@ D -->|нет| AL["allow"]
 }
 ```
 
-| Поле         | Что означает                                         |
-| ------------ | ---------------------------------------------------- |
-| `decision`   | итог: `allow`, `queue` или `block`                   |
-| `reason`     | машиночитаемая причина (например, `AMOUNT_EXCEEDED`) |
-| `policyCode` | код политики, определившей исход                     |
-| `trace`      | список сработавших политик с их `effect`             |
+| Field        | Meaning                                                   |
+| ------------ | --------------------------------------------------------- |
+| `decision`   | the outcome: `allow`, `queue`, or `block`                 |
+| `reason`     | a machine-readable reason (for example, `AMOUNT_EXCEEDED`) |
+| `policyCode` | the code of the policy that determined the outcome        |
+| `trace`      | the list of matched policies with their `effect`          |
 
-Как использовать вердикт:
+How to use the verdict:
 
-| Вердикт | Что делать в UI / автоматизации                                        |
-| ------- | ---------------------------------------------------------------------- |
-| `allow` | можно сразу создавать перевод                                          |
-| `queue` | создавать можно, но уйдёт в `awaiting_approval` - предупредите заранее |
-| `block` | показать `reason`, не давать отправить                                 |
+| Verdict | What to do in the UI or automation                                              |
+| ------- | ------------------------------------------------------------------------------- |
+| `allow` | you can create the transfer right away                                          |
+| `queue` | you can create it, but it will go to `awaiting_approval`; warn the user upfront |
+| `block` | show the `reason` and don't allow sending                                       |
 
-## Шаг 3. Как движок принимает решение
+## Step 3. How the engine makes a decision
 
-`evaluate` работает по принципу deny-overrides:
+`evaluate` follows the deny-overrides principle:
 
-1. Собираются все политики пользователя в Vault'е (через членства в группах).
-2. Остаются включённые политики с типом действия, равным запрошенному.
-3. Проверяется применимость (дерево условий; пустое - «применима всегда»).
-4. Если хотя бы одна политика блокирует - итог `block`.
+1. All of the user's policies in the Vault are collected (through group memberships).
+2. Only enabled policies whose action type matches the requested one are kept.
+3. Applicability is checked (a condition tree; an empty tree means "always applies").
+4. If at least one policy blocks, the outcome is `block`.
 
-Тот же расчёт выполняется и при создании перевода - но там он сопровождается побочными эффектами (резерв, заявка). `evaluate` же безопасен для повторных вызовов. Подробнее - на странице [Policy Engine](/concepts/policy-engine).
+The same calculation runs when a transfer is created, but there it comes with side effects (a reserve, an approval request). `evaluate`, on the other hand, is safe to call repeatedly. For details, see [Policy Engine](/concepts/policy-engine).
 
-<Expandable title="Глоссарий" default-open="false">
-  - **evaluate** - пред-флайт проверка действия без создания операции и без резерва средств.
-  - **decision** - итоговый вердикт: `allow` / `queue` / `block`.
-  - **reason** - машиночитаемый код причины исхода (например, `AMOUNT_EXCEEDED`).
-  - **trace** - перечень политик, участвовавших в решении, с их `effect`.
-  - **deny-overrides** - принцип разрешения конфликтов: одна блокирующая политика перекрывает любые разрешающие.
-  - **применимость** - условие срабатывания политики (дерево условий); пустое дерево означает «применима всегда».
+<Expandable title="Glossary" default-open="false">
+  - **evaluate**: a preflight check of an action without creating an operation or reserving funds.
+  - **decision**: the final verdict: `allow` / `queue` / `block`.
+  - **reason**: a machine-readable code for the outcome's reason (for example, `AMOUNT_EXCEEDED`).
+  - **trace**: the list of policies involved in the decision, with their `effect`.
+  - **deny-overrides**: a conflict resolution principle where a single blocking policy overrides any allowing ones.
+  - **applicability**: a policy's matching condition (a condition tree); an empty tree means "always applies."
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                                 | Причина                                                                            |
-| --------------------------------------- | ---------------------------------------------------------------------------------- |
-| всегда `allow`, хотя ждали блок         | не передан контекст (`amount` / `asset`), политика не применилась                  |
-| `asset` не распознан                    | передан `tokenCode` вместо обязательного `asset`                                   |
-| вердикт расходится с реальным созданием | параметры запроса отличаются - сверьте тело с фактическим вызовом перевода         |
-| `401` / `403` на самом эндпоинте        | проблема токена или доступа, а не политики - см. [Аутентификацию](/authentication) |
-| `vaultId` не находится                  | передан `code` Vault'а вместо его id                                               |
+| Symptom                                           | Cause                                                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| always `allow` when you expected a block          | the context (`amount` / `asset`) wasn't passed, so the policy didn't apply              |
+| `asset` not recognized                            | `tokenCode` was passed instead of the required `asset`                                  |
+| verdict differs from the actual transfer creation | the request parameters differ; compare the body with the actual transfer call           |
+| `401` / `403` on the endpoint itself              | a token or access problem, not a policy one; see [Authentication](/authentication)     |
+| `vaultId` not found                               | the Vault's `code` was passed instead of its id                                         |
 
-## Готово, если
+## You're done when
 
-- `POST /api/v1/evaluate` возвращает `decision`, ничего не создавая;
-- при ожидаемом лимите приходит `block` с понятным `reason`;
-- `trace` содержит сработавшие политики;
-- повторный вызов с теми же параметрами даёт тот же вердикт (нет побочных эффектов).
+- `POST /api/v1/evaluate` returns a `decision` without creating anything;
+- when a limit is expected, you get `block` with a clear `reason`;
+- `trace` contains the matched policies;
+- a repeated call with the same parameters returns the same verdict (no side effects).
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
   <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
-    Как устроены правила, лимиты и исходы.
+    How rules, limits, and outcomes work.
   </Card>
 
-  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
-    Создать перевод после проверки.
+  <Card title="Send a transfer" href="/guides/send-transfer" icon="send" horizontal="false">
+    Create a transfer after the check.
   </Card>
 
-  <Card title="Настроить политику" href="/guides/configure-policies" icon="sliders-horizontal" horizontal="false">
-    Собрать правило, лимит и исход.
+  <Card title="Configure a policy" href="/guides/configure-policies" icon="sliders-horizontal" horizontal="false">
+    Put together a rule, a limit, and an outcome.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Точная схема `evaluate` и формат ответа.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    The exact `evaluate` schema and response format.
   </Card>
 </Columns>
-

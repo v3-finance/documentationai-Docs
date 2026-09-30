@@ -1,31 +1,31 @@
 ---
-title: Пригласить команду
+title: Invite your team
 description: >-
-  Пригласить участников по email с назначением групп, отозвать приглашение и
-  добавить существующего пользователя в группу.
+  Invite members by email with group assignments, revoke an invitation, and
+  add an existing user to a group.
 ---
-Регистрация в V3 Custody - только по приглашению. Вы приглашаете участника по email и сразу назначаете группы, в которые он попадёт при принятии; его доступ вытекает именно из этих групп. Про модель доступа - на страницах [Аутентификация](/authentication) и [Policy Engine](/concepts/policy-engine).
+Registration in V3 Custody is invite-only. You invite a member by email and assign the groups they'll join on acceptance right away; their access comes from exactly those groups. For the access model, see [Authentication](/authentication) and [Policy Engine](/concepts/policy-engine).
 
-Жизненный цикл приглашения - от создания до членства в группах:
+The invitation lifecycle, from creation to group membership:
 
 <MermaidDiagram chart={`
 flowchart TD
-INV["POST /invitations → pending"] --> ML["magic-link (token)"]
-ML --> ACC{"Принятие"}
-ACC -->|регистрация по email| MEM["PolicyGroupMembership + инвайт accepted"]
-ACC -->|revoke до принятия| REV["revoked → 410 Gone"]
-MEM --> ACCESS["Доступ = членство в группах"]
+INV["POST /invitations → pending"] --> ML["magic link (token)"]
+ML --> ACC{"Acceptance"}
+ACC -->|registration by email| MEM["PolicyGroupMembership + invitation accepted"]
+ACC -->|revoke before acceptance| REV["revoked → 410 Gone"]
+MEM --> ACCESS["Access = group membership"]
 `} />
 
-## Что понадобится
+## Prerequisites
 
-- Vault (`vaultId`) и токен доступа (см. [Аутентификацию](/authentication)).
-- email приглашаемого - свободный (нет пользователя и активного инвайта).
-- id групп, все из этого же Vault'а.
+- A Vault (`vaultId`) and an access token (see [Authentication](/authentication)).
+- The invitee's email address, which must be free (no existing user and no active invitation).
+- Group ids, all from the same Vault.
 
-## Шаг 1. Создайте приглашение
+## Step 1. Create an invitation
 
-`POST /api/v1/invitations` создаёт pending-приглашение со списком групп. Валидация: email свободен (нет пользователя и активного инвайта), все группы принадлежат Vault'у.
+`POST /api/v1/invitations` creates a pending invitation with a list of groups. Validation checks that the email is free (no existing user and no active invitation) and that all groups belong to the Vault.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -69,89 +69,88 @@ MEM --> ACCESS["Доступ = членство в группах"]
   ```
 </CodeGroup>
 
-В ответ приходит созданный инвайт с `token` для magic-link.
+The response contains the created invitation with a `token` for the magic link.
 
 <Callout kind="alert" collapsed="false">
-  Точные имена полей тела (здесь - `vaultId`, `email`, `groups`) сверьте со [Справочником API](/api-reference) на странице создания приглашения.
+  Check the exact body field names (`vaultId`, `email`, `groups` here) on the create invitation page in the [API Reference](/api-reference).
 </Callout>
 
-## Шаг 2. Принятие приглашения
+## Step 2. Accepting the invitation
 
-У инвайта есть `token`. Страница принятия читает его публичным эндпоинтом:
+Each invitation has a `token`. The acceptance page reads it through a public endpoint:
 
-- `GET /api/v1/invitations/by-token/{token}` - публичный, без авторизации (безопасность держится на энтропии токена). Показывает «You're invited to \<vault> as \<groups>»; для отозванных/принятых возвращает `410 Gone`.
+- `GET /api/v1/invitations/by-token/{token}` is public and requires no authorization (security relies on the token's entropy). It shows "You're invited to \<vault> as \<groups>"; for revoked or accepted invitations, it returns `410 Gone`.
 
-При реальной регистрации принятие происходит автоматически: платформа находит pending-инвайт по email, создаёт `PolicyGroupMembership` и помечает инвайт принятым. Для отладки есть `POST /api/v1/invitations/accept-debug`, который выполняет ту же логику для уже существующего пользователя.
+During actual registration, acceptance happens automatically: the platform finds the pending invitation by email, creates a `PolicyGroupMembership`, and marks the invitation as accepted. For debugging, `POST /api/v1/invitations/accept-debug` runs the same logic for an existing user.
 
-Состояния инвайта и что отдаёт `by-token`:
+Invitation states and what `by-token` returns:
 
-| Состояние  | Что значит                | `by-token`     |
-| ---------- | ------------------------- | -------------- |
-| `pending`  | создан, ждёт принятия     | `200` + детали |
-| `accepted` | принят, membership создан | `410 Gone`     |
-| `revoked`  | отозван до принятия       | `410 Gone`     |
+| State      | Meaning                              | `by-token`        |
+| ---------- | ------------------------------------ | ----------------- |
+| `pending`  | created, awaiting acceptance         | `200` + details   |
+| `accepted` | accepted, membership created         | `410 Gone`        |
+| `revoked`  | revoked before acceptance            | `410 Gone`        |
 
-## Шаг 3. Управляйте приглашениями и группами
+## Step 3. Manage invitations and groups
 
-| Действие                    | Запрос                                     |
-| --------------------------- | ------------------------------------------ |
-| список приглашений Vault'а  | `GET /api/v1/vaults/{code}/invitations`    |
-| отозвать pending-инвайт     | `POST /api/v1/invitations/{id}/revoke`     |
-| чтение по токену (публично) | `GET /api/v1/invitations/by-token/{token}` |
-| debug-принятие              | `POST /api/v1/invitations/accept-debug`    |
-| создать группу политик      | `POST /api/v1/policy-groups`               |
-| добавить участника в группу | `POST /api/v1/policy-groups/{id}/members`  |
+| Action                          | Request                                    |
+| ------------------------------- | ------------------------------------------ |
+| list a Vault's invitations      | `GET /api/v1/vaults/{code}/invitations`    |
+| revoke a pending invitation     | `POST /api/v1/invitations/{id}/revoke`     |
+| read by token (public)          | `GET /api/v1/invitations/by-token/{token}` |
+| debug acceptance                | `POST /api/v1/invitations/accept-debug`    |
+| create a policy group           | `POST /api/v1/policy-groups`               |
+| add a member to a group         | `POST /api/v1/policy-groups/{id}/members`  |
 
 <Callout kind="info" collapsed="false">
-  Принятое приглашение отозвать нельзя - вместо этого уберите пользователя из групп.
+  An accepted invitation can't be revoked; remove the user from their groups instead.
 </Callout>
 
-## Шаг 4. Роли - это группы
+## Step 4. Roles are groups
 
-Права участника вытекают из групп, в которых он состоит - отдельных «скоупов» у токена нет. `userId` при добавлении в группу может быть произвольной строкой - так же подключают сервисные учётки. Убирание из группы снимает тот доступ, который она давала. Подробнее - в гайде [Выдать и отозвать доступ](/guides/share-access).
+A member's permissions come from the groups they belong to; tokens have no separate scopes. The `userId` you pass when adding someone to a group can be any string, which is also how service accounts are connected. Removing someone from a group revokes the access that group granted. For details, see the [Share and revoke access](/guides/share-access) guide.
 
-<Expandable title="Глоссарий" default-open="false">
-  - **приглашение (invitation)** - pending-запись на регистрацию по email с набором групп.
-  - **magic-link / token** - ссылка с высокоэнтропийным токеном; на нём держится безопасность публичного чтения.
-  - **PolicyGroupMembership** - членство пользователя в группе политик.
-  - **группа политик** - набор прав/политик; доступ участника вытекает из членства.
-  - **accept-debug** - служебный эндпоинт принятия для уже существующего пользователя.
+<Expandable title="Glossary" default-open="false">
+  - **invitation**: a pending registration record for an email address, with a set of groups.
+  - **magic link / token**: a link with a high-entropy token, which secures the public read endpoint.
+  - **PolicyGroupMembership**: a user's membership in a policy group.
+  - **policy group**: a set of permissions and policies; a member's access comes from membership.
+  - **accept-debug**: a service endpoint that runs acceptance for an existing user.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                       | Причина                                               |
-| ----------------------------- | ----------------------------------------------------- |
-| email занят / уже есть инвайт | нельзя создать второй активный инвайт на тот же email |
-| группа не из этого Vault'а    | все группы должны принадлежать Vault'у приглашения    |
-| `by-token` вернул `410`       | инвайт уже принят или отозван                         |
-| принятый инвайт не отзывается | уберите пользователя из групп вместо `revoke`         |
-| у участника нет прав          | не добавлен ни в одну группу - доступ = членство      |
+| Symptom                                          | Cause                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| email is taken or already has an invitation      | you can't create a second active invitation for the same email      |
+| group isn't from this Vault                      | all groups must belong to the invitation's Vault                    |
+| `by-token` returned `410`                        | the invitation has already been accepted or revoked                |
+| accepted invitation can't be revoked             | remove the user from their groups instead of using `revoke`         |
+| member has no permissions                        | they haven't been added to any group; access = membership           |
 
-## Готово, если
+## You're done when
 
-- `POST /api/v1/invitations` вернул инвайт с `token`;
-- `by-token` отдаёт детали для `pending` и `410` для принятого/отозванного;
-- после принятия создан `PolicyGroupMembership`;
-- удаление из группы снимает соответствующий доступ.
+- `POST /api/v1/invitations` returned an invitation with a `token`;
+- `by-token` returns details for `pending` and `410` for accepted or revoked invitations;
+- a `PolicyGroupMembership` is created after acceptance;
+- removing someone from a group revokes the corresponding access.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Выдать и отозвать доступ" href="/guides/share-access" icon="share-2" horizontal="false">
-    Группы, членства и отзыв доступа.
+  <Card title="Share and revoke access" href="/guides/share-access" icon="share-2" horizontal="false">
+    Groups, memberships, and revoking access.
   </Card>
 
-  <Card title="Аутентификация" href="/authentication" icon="lock" horizontal="false">
-    Регистрация по приглашению и модель доступа.
+  <Card title="Authentication" href="/authentication" icon="lock" horizontal="false">
+    Invite-only registration and the access model.
   </Card>
 
   <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
-    Как группы определяют права и политики.
+    How groups determine permissions and policies.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Приглашения, группы и участники.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Invitations, groups, and members.
   </Card>
 </Columns>
-

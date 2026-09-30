@@ -1,139 +1,138 @@
 ---
-title: Журнал (двойная запись)
+title: Ledger (double-entry)
 description: >-
-  Каждое движение средств - сбалансированные проводки, а баланс вычисляется из
-  журнала. Available и reserved, исторические балансы, идемпотентность и
-  неизменяемость.
+  Every movement of funds is a set of balanced entries, and balances are
+  computed from the ledger. Available and reserved, historical balances,
+  idempotency, and immutability.
 ---
-В V3 Custody деньги - это не число, которое перезаписывается, а **журнал**. Любое движение средств записывается двойной записью, а баланс вычисляется из этих записей. Поэтому на вопрос «сколько и почему» вы отвечаете запросом, а не расследованием.
+In V3 Custody, money isn't a number that gets overwritten; it's a **ledger**. Every movement of funds is recorded with double-entry accounting, and balances are computed from those records. So answering "how much and why" takes a query, not an investigation.
 
-## Проводки, которые всегда сходятся
+## Entries that always balance
 
-Каждая запись журнала (entry) состоит из проводок (postings), и **их сумма равна нулю**. Одна сторона трогает счёт вашего адреса, другая - встречную сторону движения (ончейн-контур или корректировку). Ноль в сумме - это гарантия, что средства не появляются и не исчезают, а только перемещаются.
+Each ledger record (entry) consists of postings, and **their sum is zero**. One side touches your address's account, and the other touches the counterpart of the movement (the on-chain side or an adjustment). A zero sum guarantees that funds never appear or disappear; they only move.
 
-Схематично исходящий перевод 100 USDT проходит двумя записями. Сначала - резерв внутри вашего адреса:
+Schematically, an outgoing transfer of 100 USDT goes through two entries. First, a reserve within your address:
 
-| Счёт                    | Проводка |
-| ----------------------- | -------- |
-| ваш адрес · `available` | −100     |
-| ваш адрес · `reserved`  | +100     |
-| **Сумма**               | **0**    |
+| Account                     | Posting  |
+| --------------------------- | -------- |
+| your address · `available`  | −100     |
+| your address · `reserved`   | +100     |
+| **Total**                   | **0**    |
 
-Затем - исполнение после подписи:
+Then, execution after signing:
 
-| Счёт                       | Проводка |
-| -------------------------- | -------- |
-| ваш адрес · `reserved`     | −100     |
-| встречная сторона (ончейн) | +100     |
-| **Сумма**                  | **0**    |
+| Account                         | Posting  |
+| ------------------------------- | -------- |
+| your address · `reserved`       | −100     |
+| counterpart (on-chain)          | +100     |
+| **Total**                       | **0**    |
 
-Журнал доступен только на чтение и неизменяем:
+The ledger is read-only and immutable:
 
-- `GET /api/v1/vaults/{code}/ledger/entries` - immutable-записи с проводками (сумма постингов = 0). Сортировка по `postedAt` (сначала свежие), keyset-пагинация, фильтры `from` / `to` / `token`. Обычный участник видит только записи, затрагивающие его адреса; администратор - весь Vault.
+- `GET /api/v1/vaults/{code}/ledger/entries` returns immutable entries with their postings (postings sum to 0). Sorted by `postedAt` (newest first), with keyset pagination and the `from` / `to` / `token` filters. A regular member sees only entries that touch their own addresses; an administrator sees the entire Vault.
 
-## Баланс вычисляется, а не хранится
+## Balances are computed, not stored
 
-Баланс - это **свёртка журнала**, а не отдельно хранимое число, он обновляется атомарно с проводками, поэтому не может разойтись с ними. Каждый баланс делится на два состояния:
+A balance is a **rollup of the ledger**, not a separately stored number. It's updated atomically with the postings, so it can never drift from them. Every balance is split into two states:
 
-| Состояние   | Что это                                          | Когда меняется                                                  |
-| ----------- | ------------------------------------------------ | --------------------------------------------------------------- |
-| `available` | свободно, можно тратить                          | ↓ при создании перевода; ↑ при возврате резерва или поступлении |
-| `reserved`  | заблокировано под ожидающими переводами, но ваше | ↑ при создании перевода; ↓ при исполнении или возврате          |
-| «владеемый» | `available + reserved`                           | сумма двух состояний                                            |
+| State       | What it is                                         | When it changes                                                      |
+| ----------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| `available` | free to spend                                      | ↓ when a transfer is created; ↑ when a reserve is returned or funds arrive |
+| `reserved`  | locked by pending transfers, but still yours       | ↑ when a transfer is created; ↓ on execution or return               |
+| "owned"     | `available + reserved`                             | the sum of the two states                                            |
 
-- `GET /api/v1/vaults/{code}/balances` - балансы Vault'а, пользователя или адреса; параметры `summary`, `addressId`, `token`. В ответе - агрегаты по токенам (`totals`).
+- `GET /api/v1/vaults/{code}/balances` returns balances for a Vault, a user, or an address, with the `summary`, `addressId`, and `token` parameters. The response contains per-token totals (`totals`).
 
-## Reserved: средства «в пути», но ваши
+## Reserved: funds "in transit," but still yours
 
-Когда создаётся перевод, сумма сначала **резервируется** - ещё до того, как транзакция уйдёт в сеть. Резерв защищает от двойной траты: те же деньги нельзя отправить дважды.
+When a transfer is created, the amount is first **reserved**, even before the transaction is sent to the network. The reserve protects against double spending: the same funds can't be sent twice.
 
 <MermaidDiagram chart={`
 flowchart LR
-AV["available"] -->|создан перевод| RS["reserved"]
-RS -->|подтверждён / исполнен| OUT["списано (ушло в сеть)"]
-RS -->|отклонён / отменён| AV
+AV["available"] -->|transfer created| RS["reserved"]
+RS -->|approved / executed| OUT["debited (sent to network)"]
+RS -->|rejected / cancelled| AV
 `} />
 
 <Callout kind="info" collapsed="false">
-  Судьба резерва зависит от Policy Engine. Если перевод одобрен и подтверждён - резерв списывается. Если поставлен в очередь на подтверждение - сумма ждёт в `reserved`. Если отменён или отклонён - возвращается в `available`. Средства всё это время остаются вашими.
+  What happens to the reserve depends on the Policy Engine. If the transfer is allowed and confirmed, the reserve is debited. If it's queued for approval, the amount waits in `reserved`. If it's cancelled or rejected, the amount returns to `available`. The funds remain yours the entire time.
 </Callout>
 
-## Как читать баланс
+## How to read a balance
 
-- **Текущий** - `GET /api/v1/vaults/{code}/balances` (`available` и `reserved` сейчас).
-- **На дату** - `GET /api/v1/vaults/{code}/balances/as-of?at=...` (позиция в прошлом, для выписок и сверок).
-- **Сводно или по адресу** - `summary=true` (только агрегаты по токенам) или `addressId` (один адрес).
-- **Что тратить** - ориентируйтесь на `available`; `available + reserved` - сколько всего вашего.
+- **Current**: `GET /api/v1/vaults/{code}/balances` (`available` and `reserved` right now).
+- **As of a date**: `GET /api/v1/vaults/{code}/balances/as-of?at=...` (a past position, for statements and reconciliation).
+- **Summary or per address**: `summary=true` (per-token totals only) or `addressId` (a single address).
+- **What you can spend**: go by `available`; `available + reserved` is the total that's yours.
 
-## Баланс на любой момент прошлого
+## Balances at any point in the past
 
-Поскольку журнал неизменяем, позицию можно восстановить на любую дату из проводок, зафиксированных **до** этого момента:
+Because the ledger is immutable, a position can be reconstructed for any date from the postings recorded **before** that point:
 
-- `GET /api/v1/vaults/{code}/balances/as-of?at=...` - баланс на момент `at`, рассчитанный из проводок с `postedAt <= at`. Прошлое не меняется задним числом. «Владеемый» баланс = `available + reserved`; обычный участник видит только свои адреса.
+- `GET /api/v1/vaults/{code}/balances/as-of?at=...` returns the balance as of `at`, calculated from postings with `postedAt <= at`. The past never changes retroactively. The "owned" balance = `available + reserved`; a regular member sees only their own addresses.
 
-Это то, что нужно для выписок на конец периода и сверок: ответ на «сколько было на 31 марта» всегда одинаковый.
+This is exactly what you need for end-of-period statements and reconciliation: the answer to "how much was there on March 31" is always the same.
 
-## Идемпотентность: один запрос - один платёж
+## Idempotency: one request, one payment
 
-У перевода есть `idempotencyKey`. Повтор запроса с тем же ключом вернёт **уже созданную** операцию, а не создаст новую. Значит, ретраи при сетевых сбоях безопасны, двойного платежа не будет. Подробнее - на странице [Идемпотентность](/platform/idempotency).
+Transfers accept an `idempotencyKey`. Retrying a request with the same key returns the operation that was **already created** instead of creating a new one. That makes retries after network failures safe, with no risk of a double payment. For details, see [Idempotency](/platform/idempotency).
 
-## Ничего не переписывается - только добавляется
+## Nothing is rewritten, only appended
 
-Записи журнала не редактируются и не удаляются. Ошибку исправляют **новой операцией**, связанной с исходной, так история сохраняется целиком:
+Ledger entries are never edited or deleted. A mistake is corrected with a **new operation** linked to the original, so the full history is preserved:
 
-| Тип связи     | Смысл                                                  |
-| ------------- | ------------------------------------------------------ |
-| `refund`      | возврат средств (частичный - через `relatedAmountRaw`) |
-| `reversal`    | сторно / отмена исходной операции                      |
-| `correction`  | исправление ошибки в исходной операции                 |
-| `replacement` | замена операции на новую                               |
+| Relation type | Meaning                                                      |
+| ------------- | ------------------------------------------------------------ |
+| `refund`      | a return of funds (partial refunds use `relatedAmountRaw`)   |
+| `reversal`    | a reversal or cancellation of the original operation         |
+| `correction`  | a fix for an error in the original operation                 |
+| `replacement` | replacement of the operation with a new one                  |
 
-- `POST /api/v1/vaults/{code}/operation-relations` - явная связь между операциями. Встречный платёж **не считается** возвратом автоматически - связь указывается явно. Точные правила связывания - в [Справочнике API](/api-reference).
+- `POST /api/v1/vaults/{code}/operation-relations` creates an explicit link between operations. An opposite payment is **not** automatically treated as a refund; the link must be set explicitly. The exact linking rules are in the [API Reference](/api-reference).
 
-Плюс у каждой операции есть история статусов:
+Each operation also has a status history:
 
-- `GET /api/v1/vaults/{code}/operations/{type}/{id}/status-history` - хронология переходов статуса.
+- `GET /api/v1/vaults/{code}/operations/{type}/{id}/status-history` returns the timeline of status transitions.
 
-## Лента операций и журнал, как два разных взгляда
+## The operations feed and the ledger: two different views
 
-Журнал (проводки) - это бухгалтерская истина. Для человека же удобнее **лента операций** - бизнес-события:
+The ledger (postings) is the accounting truth. For humans, though, the **operations feed** of business events is more convenient:
 
-- `GET /api/v1/vaults/{code}/history` - ваша активность в Vault'е одной лентой (ваши переводы и депозиты на ваши адреса), по `(createdAt, id)` убыв., keyset. Фильтры: `direction=in|out`, `from` / `to`, статус (например, зависшие переводы).
+- `GET /api/v1/vaults/{code}/history` returns your activity in the Vault as a single feed (your transfers and deposits to your addresses), sorted by `(createdAt, id)` descending, with keyset pagination. Filters: `direction=in|out`, `from` / `to`, and status (for example, stuck transfers).
 
-Проводки отвечают на «как это отражено в учёте», лента - на «что произошло».
+Postings answer "how is this reflected in the books," while the feed answers "what happened."
 
 <Callout kind="tip" collapsed="false">
-  Суммы в журнале и балансах хранятся в минимальных единицах токена (raw), а показываются в десятичном виде по `decimals` сети. Подробнее - на странице [Суммы и точность](/platform/amounts-precision).
+  Amounts in the ledger and balances are stored in the token's smallest units (raw) and displayed in decimal form using the network's `decimals`. For details, see [Amounts and precision](/platform/amounts-precision).
 </Callout>
 
-## Термины
+## Terms
 
-<Expandable title="Словарь журнала" default-open="false">
-  - **Запись (entry)** - атомарная бухгалтерская запись; её проводки суммируются в ноль.
-  - **Проводка (posting)** - движение по одному счёту в рамках записи.
-  - **`available`** - свободный баланс, который можно тратить.
-  - **`reserved`** - заблокированный под ожидающими переводами.
-  - **`as-of`** - баланс на момент времени, восстановленный из проводок.
-  - **Связь операций (operation-relation)** - явная ссылка одной операции на другую (`refund` / `reversal` / и т.д.).
+<Expandable title="Ledger glossary" default-open="false">
+  - **Entry**: an atomic accounting record; its postings sum to zero.
+  - **Posting**: a movement on a single account within an entry.
+  - **`available`**: the free balance that can be spent.
+  - **`reserved`**: the balance locked by pending transfers.
+  - **`as-of`**: a balance at a point in time, reconstructed from postings.
+  - **Operation relation**: an explicit link from one operation to another (`refund` / `reversal` / etc.).
 </Expandable>
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
-    Резерв, состояния и идемпотентность на практике.
+  <Card title="Send a transfer" href="/guides/send-transfer" icon="send" horizontal="false">
+    The reserve, states, and idempotency in practice.
   </Card>
 
-  <Card title="Отчёты и снапшоты" href="/guides/reports-snapshots" icon="chart-column" horizontal="false">
-    Выписки на дату и иммутабельные снапшоты.
+  <Card title="Reports and snapshots" href="/guides/reports-snapshots" icon="chart-column" horizontal="false">
+    Point-in-time statements and immutable snapshots.
   </Card>
 
-  <Card title="Адреса, папки и доступ" href="/concepts/addresses" icon="wallet" horizontal="false">
-    Счета журнала, изоляция видимости и доступ.
+  <Card title="Addresses, folders, and access" href="/concepts/addresses" icon="wallet" horizontal="false">
+    Ledger accounts, visibility isolation, and access.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Журнал, балансы, история и связи операций.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    The ledger, balances, history, and operation relations.
   </Card>
 </Columns>
-

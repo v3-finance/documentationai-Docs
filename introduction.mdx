@@ -1,91 +1,90 @@
 ---
-title: Введение в V3 Custody
+title: Introduction to V3 Custody
 description: >-
-  V3 Custody - MPC-платформа для хранения цифровых активов: доли ключа вместо
-  приватных ключей, проверка политик до подписи и двойная запись под каждым
-  балансом.
+  V3 Custody is an MPC platform for digital asset custody: key shares instead
+  of private keys, policy checks before signing, and double-entry accounting
+  behind every balance.
 ---
-## Что такое V3 Custody
+## What is V3 Custody
 
-V3 Custody - инфраструктура для хранения и перемещения цифровых активов без передачи ключей кому бы то ни было, включая нас.
+V3 Custody is infrastructure for storing and moving digital assets without handing your keys to anyone, including us.
 
-Целого приватного ключа не существует. Любая исходящая транзакция сверяется с правилами вашей организации _до_ того, как будет создана подпись. Любое движение средств попадает в неизменяемый журнал двойной записи. Управление идёт через REST API, веб-консоль или подтверждения с телефона.
+A complete private key never exists. Every outgoing transaction is checked against your organization's rules _before_ a signature is created. Every movement of funds is recorded in an immutable double-entry ledger. You manage everything through the REST API, the web console, or approvals from your phone.
 
-## Три принципа, на которых всё держится
+## Three core principles
 
-**Ключ - это доли, а не файл.** Подпись собирается по схеме пороговая подпись ECDSA: каждая нода хранит свою долю, и подпись создаётся совместно, так что ни одна нода - ни оператор, ни атакующий - не видит ключ целиком. Целого ключа нет ни в один момент жизненного цикла: ни при создании, ни при подписи, ни при восстановлении.
+**A key is a set of shares, not a file.** Signing uses threshold ECDSA: each node holds its own key share, and the signature is produced jointly, so no single node, whether run by an operator or compromised by an attacker, ever sees the whole key. The complete key does not exist at any point in its lifecycle: not at creation, not during signing, and not during recovery.
 
-**Правила - это конфигурация, а не код.** Policy Engine оценивает каждый запрос до того, как будет затронута доля ключа. Политики срабатывают по селекторам - сумма, актив, сеть, адрес получателя, сегмент кошелька, инициатор - и дают один из трёх исходов: **allow**(разрешено), **queue** (в очередь на подтверждение) или **block**(заблокировано). Проверка идёт до подписи, поэтому заблокированную транзакцию не нужно откатывать или отзывать: её просто не существует в блокчейне.
+**Rules are configuration, not code.** The Policy Engine evaluates every request before any key share is touched. Policies match on selectors (amount, asset, network, recipient address, wallet segment, initiator) and return one of three outcomes: **allow**, **queue** (held for approval), or **block**. Because the check happens before signing, a blocked transaction never has to be rolled back or revoked: it simply never reaches the blockchain.
 
-**Баланс вычисляется, а не хранится.** Каждая операция пишет сбалансированную пару проводок дебет/кредит, которые никогда не редактируются и не удаляются. Баланс - результат этих проводок, поэтому вопрос «почему здесь именно эта цифра» решается запросом, а не расследованием.
+**Balances are computed, not stored.** Every operation writes a balanced pair of debit and credit entries that are never edited or deleted. A balance is the result of those entries, so answering "why is this the number here" takes a query, not an investigation.
 
-## Vault: дерево адресов по вашей схеме
+## Vault: an address tree built on your schema
 
-Vault - схема деривации, которую вы проектируете сами, а не получаете готовой. Вы задаёте сегменты - сеть, назначение, актив, индекс клиента, стадия - и их порядок, а Vault превращает это в детерминированные пути деривации. Сегменты бывают статические, фиксированные для всего Vault, и динамические - новая ветка на клиента, на заявку, на депозит.
+A Vault is a derivation scheme you design yourself rather than receive ready-made. You define the segments (network, purpose, asset, client index, stage) and their order, and the Vault turns them into deterministic derivation paths. Segments are either static, fixed for the entire Vault, or dynamic, creating a new branch per client, per request, or per deposit.
 
-Практический смысл: дерево адресов и есть ваша модель учёта. По пути видно, для чего заведён адрес, а Policy Engine пишет правила по тем же сегментам - вместо списков непрозрачных адресов.
+In practice, the address tree becomes your accounting model. The path shows what an address was created for, and the Policy Engine writes rules against the same segments instead of lists of opaque addresses.
 
-## Жизнь транзакции
+## Transaction lifecycle
 
 <Steps>
-  <Step title="Запрос" icon="plus" title-type="p">
-    Перевод создаётся через API, веб-консоль или мобильное приложение.
+  <Step title="Request" icon="plus" title-type="p">
+    A transfer is created through the API, the web console, or the mobile app.
   </Step>
 
-  <Step title="Проверка политик" icon="shield" title-type="p">
-    Policy Engine возвращает `allow`, `queue` или `block` - вместе с причиной и списком сработавших политик.
+  <Step title="Policy check" icon="shield" title-type="p">
+    The Policy Engine returns `allow`, `queue`, or `block`, along with the reason and the list of policies that matched.
   </Step>
 
-  <Step title="Подтверждение" icon="users" title-type="p">
-    Транзакции из очереди ждут тех, кого требует политика. Подтверждающий видит сумму, получателя и заявленную причину до того, как поставит подпись.
+  <Step title="Approval" icon="users" title-type="p">
+    Queued transactions wait for the approvers the policy requires. An approver sees the amount, the recipient, and the stated reason before signing off.
   </Step>
 
-  <Step title="Подпись" icon="lock" title-type="p">
-    Только на этом шаге ноды MPC совместно создают подпись. Доли ключа остаются на своих местах.
+  <Step title="Signing" icon="lock" title-type="p">
+    Only at this step do the MPC nodes jointly produce a signature. Key shares stay where they are.
   </Step>
 
-  <Step title="Отправка в сеть" icon="send" title-type="p">
-    Подписанная транзакция уходит в блокчейн. Комиссию спонсирует Gas Station - нативный баланс на адресе-отправителе не нужен.
+  <Step title="Broadcast" icon="send" title-type="p">
+    The signed transaction is sent to the blockchain. The fee is sponsored by Gas Station, so the sending address doesn't need a native balance.
   </Step>
 
-  <Step title="Проводка" icon="book-open" title-type="p">
-    Движение записывается в журнал парой сбалансированных проводок с ключом идемпотентности, поэтому повтор запроса не задваивает сумму.
+  <Step title="Ledger entry" icon="book-open" title-type="p">
+    The movement is recorded in the ledger as a pair of balanced entries with an idempotency key, so a retried request never doubles the amount.
   </Step>
 </Steps>
 
-## Газ перестаёт быть вашей заботой
+## Gas is no longer your problem
 
-Только что созданный адрес обычно не может отправить ни цента, пока на него не придут TRX, ETH или BNB. V3 Custody убирает этот шаг: вы пополняете один баланс Gas Station — нативной монетой или обычным USDT - и каждый созданный адрес работает с первой секунды.
+A freshly created address usually can't send a single cent until it receives TRX, ETH, or BNB. V3 Custody removes this step: you top up one Gas Station balance, in the native coin or plain USDT, and every address you create works from the first second.
 
 <Callout kind="info" collapsed="false">
-  Gas Station обслуживает миллионы адресов, а не только ваши, поэтому спонсирование комиссии не оставляет ончейн-следа, связывающего ваши адреса между собой. Общего кошелька-донора выше по цепочке просто нет.
+  Gas Station serves millions of addresses, not just yours, so fee sponsorship leaves no on-chain trail linking your addresses to each other. There is no shared funding wallet upstream for anyone to trace.
 </Callout>
 
-## Кому это нужно
+## Who it's for
 
-Командам, которые ведут много адресов и должны объяснять каждое движение: биржам и OTC-дескам, платёжным провайдерам, сервисам с отдельным адресом на пользователя и казначейским отделам, которые отчитываются перед аудитором.
+Teams that manage many addresses and need to explain every movement: exchanges and OTC desks, payment providers, services that assign a separate address to each user, and treasury departments that report to auditors.
 
-## С чего начать
+## Getting started
 
 <Columns cols="2">
-  <Card title="Быстрый старт" href="/quickstart" icon="zap" horizontal="false">
-    Поднять инстанс и сделать первый вызов API.
+  <Card title="Quickstart" href="/quickstart" icon="zap" horizontal="false">
+    Spin up an instance and make your first API call.
   </Card>
 
-  <Card title="Аутентификация" href="/authentication" icon="key" horizontal="false">
-    API-ключи, сессии и авторизация подтверждений.
+  <Card title="Authentication" href="/authentication" icon="key" horizontal="false">
+    API keys, sessions, and approval authorization.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Все эндпоинты, параметры и форматы ответов.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    All endpoints, parameters, and response formats.
   </Card>
 
-  <Card title="Ошибки" href="/errors" icon="alert-circle" horizontal="false">
-    Коды ошибок и что делать с каждой из них.
+  <Card title="Errors" href="/errors" icon="alert-circle" horizontal="false">
+    Error codes and how to handle each one.
   </Card>
 </Columns>
 
 <Callout kind="tip" collapsed="false">
-  Не разработчик? В [Help Center](/help-center) собраны повседневные задачи — как получить доступ к кошельку, как завести кастодиальный аккаунт и что проверить, если транзакция не подписывается.
+  Not a developer? The [Help Center](/help-center) covers everyday tasks: how to get access to a wallet, how to set up a custodial account, and what to check if a transaction won't sign.
 </Callout>
-

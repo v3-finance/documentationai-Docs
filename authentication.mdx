@@ -1,23 +1,23 @@
 ---
-title: Аутентификация
+title: Authentication
 description: >-
-  Как V3 Custody аутентифицирует запросы - Bearer‑токен для сервисов и мобильных
-  приложений, httpOnly‑cookie для веба и регистрация по приглашению.
+  How V3 Custody authenticates requests: a Bearer token for services and mobile
+  apps, an httpOnly cookie for the web, and invite-only registration.
 ---
-Каждый запрос к API V3 Custody должен быть аутентифицирован. Платформа принимает два способа: **Bearer‑токен** (для серверных интеграций и мобильных приложений) и **httpOnly‑cookie** (для веб‑консоли). Любой эндпоинт понимает оба.
+Every request to the V3 Custody API must be authenticated. The platform accepts two methods: a **Bearer token** (for server integrations and mobile apps) and an **httpOnly cookie** (for the web console). Every endpoint accepts both.
 
 <Callout kind="alert" collapsed="false">
-  Токен - это доступ к средствам и операциям. Не коммитьте его в репозиторий и не встраивайте в код: храните в переменных окружения или менеджере секретов.
+  A token grants access to funds and operations. Never commit it to a repository or embed it in code: keep it in environment variables or a secrets manager.
 </Callout>
 
-## Два способа аутентификации
+## Two authentication methods
 
-### Bearer - сервисы и мобильные приложения
+### Bearer: services and mobile apps
 
-Передайте токен сессии в заголовке `Authorization`. Так аутентифицируются серверные интеграции и мобильные клиенты.
+Pass the session token in the `Authorization` header. This is how server integrations and mobile clients authenticate.
 
 <ParamField header="Authorization" param-type="string" required="true" deprecated="false" show-location="true">
-  Bearer‑токен: `Authorization: Bearer <токен>`.
+  Bearer token: `Authorization: Bearer <token>`.
 </ParamField>
 
 <CodeGroup show-lines="true">
@@ -42,41 +42,41 @@ description: >-
   ```
 </CodeGroup>
 
-### Cookie - веб‑консоль
+### Cookie: web console
 
-При входе в веб‑консоль выставляется httpOnly‑cookie с сессией. Браузер отправляет её автоматически, вручную с ней работать не нужно, а из JavaScript она недоступна по замыслу. Для интеграций «сервер↔сервер» используйте Bearer‑токен, а не cookie.
+Signing in to the web console sets an httpOnly session cookie. The browser sends it automatically, so you never handle it manually, and by design it isn't accessible from JavaScript. For server-to-server integrations, use a Bearer token rather than a cookie.
 
-## Как получить токен
+## Getting a token
 
 <Callout kind="info" collapsed="false">
-  \[TODO: описать, как выпускается токен доступа для серверных интеграций - механизм пока уточняется. Заполнить, когда определим процесс выдачи. Блок находится по метке TODO.]
+  \[TODO: describe how access tokens are issued for server integrations. The mechanism is still being finalized. Fill this in once the issuance process is defined. Find this block by the TODO marker.]
 </Callout>
 
-## Регистрация только по приглашению
+## Invite-only registration
 
-Самостоятельная регистрация закрыта: hook блокирует sign‑up без действующего приглашения. Новый участник попадает в Vault так:
+Self-registration is disabled: a hook blocks sign‑up without a valid invitation. A new member joins a Vault as follows:
 
 <Steps>
-  <Step title="Администратор создаёт приглашение" icon="mail" title-type="p">
-    Указываются email и список групп, в которые участник попадёт при принятии. Эндпоинт - `POST /api/v1/invitations`.
+  <Step title="An administrator creates an invitation" icon="mail" title-type="p">
+    The invitation specifies an email address and the groups the member will join on acceptance. The endpoint is `POST /api/v1/invitations`.
   </Step>
 
-  <Step title="Участник принимает приглашение" icon="user-check" title-type="p">
-    При регистрации по приглашению платформа автоматически создаёт членства в группах (`PolicyGroupMembership`) и помечает приглашение принятым.
+  <Step title="The member accepts the invitation" icon="user-check" title-type="p">
+    When someone registers through an invitation, the platform automatically creates their group memberships (`PolicyGroupMembership`) and marks the invitation as accepted.
   </Step>
 
-  <Step title="Доступ определяется группами" icon="users" title-type="p">
-    Права участника вытекают из групп, в которых он состоит. Отдельных «скоупов» у токена нет.
+  <Step title="Groups determine access" icon="users" title-type="p">
+    A member's permissions come from the groups they belong to. Tokens have no separate scopes.
   </Step>
 </Steps>
 
 <Callout kind="tip" collapsed="false">
-  Приглашение ещё не принято? Его можно отозвать через `POST /api/v1/invitations/{id}/revoke`. Принятое приглашение не отзывается - вместо этого участника убирают из групп.
+  Invitation not accepted yet? You can revoke it with `POST /api/v1/invitations/{id}/revoke`. An accepted invitation can't be revoked; remove the member from their groups instead.
 </Callout>
 
-## Проверьте аутентификацию
+## Verify authentication
 
-Самый простой способ проверить токен - запросить список Vault'ов.
+The simplest way to check a token is to request the list of Vaults.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -88,7 +88,7 @@ description: >-
   const res = await fetch("[BASE_URL]/api/v1/vaults", {
     headers: { Authorization: `Bearer ${process.env.V3_TOKEN}` },
   });
-  console.log(res.status); // 200 — токен принят
+  console.log(res.status); // 200 — token accepted
   ```
 
   ```python
@@ -96,11 +96,11 @@ description: >-
       "[BASE_URL]/api/v1/vaults",
       headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
   )
-  print(res.status_code)  # 200 — токен принят
+  print(res.status_code)  # 200 — token accepted
   ```
 </CodeGroup>
 
-Если токен отсутствует или истёк, вернётся `401`:
+If the token is missing or expired, the API returns `401`:
 
 ```json
 {
@@ -110,19 +110,18 @@ description: >-
 }
 ```
 
-## Кто что видит
+## Who sees what
 
-Аутентификация отвечает на вопрос «кто вы», а модель доступа - «что вам можно». В V3 Custody доступ вытекает из членства в группах, а видимость по умолчанию ограничена: обычный участник видит свои адреса, операции и балансы, администратор - весь Vault. Права применяются ещё до расчётов, поэтому чужие данные не попадают даже в агрегаты.
+Authentication answers "who are you," while the access model answers "what are you allowed to do." In V3 Custody, access comes from group membership, and visibility is restricted by default: a regular member sees their own addresses, operations, and balances, while an administrator sees the entire Vault. Permissions are applied before any calculations, so other members' data doesn't leak even into aggregate figures.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Быстрый старт" href="/quickstart" icon="zap" horizontal="false">
-    Первые вызовы к API за несколько минут.
+  <Card title="Quickstart" href="/quickstart" icon="zap" horizontal="false">
+    Your first API calls in a few minutes.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Все эндпоинты, параметры и форматы ответов.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    All endpoints, parameters, and response formats.
   </Card>
 </Columns>
-

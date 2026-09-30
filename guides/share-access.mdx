@@ -1,41 +1,41 @@
 ---
-title: Выдать и отозвать доступ
+title: Share and revoke access
 description: >-
-  Открыть доступ к адресу или папке ролью, изменить или отозвать грант и
-  проверить, кто и откуда имеет доступ.
+  Grant a role on an address or folder, change or revoke a grant, and check
+  who has access and where it comes from.
 ---
-Доступ к адресам выдаётся точечно, на адрес, или целиком на папку, ролью `viewer` или `contributor`. Субъектом может быть пользователь или группа, а грант на папку покрывает и будущие адреса. Здесь - как выдать, изменить и отозвать доступ и как проверить, у кого он есть. Про модель - на странице [Адреса, папки и доступ](/concepts/addresses).
+Address access is granted either selectively, on a single address, or broadly, on an entire folder, with the `viewer` or `contributor` role. The subject can be a user or a group, and a folder grant also covers future addresses. This guide shows how to grant, change, and revoke access and how to check who has it. For the underlying model, see [Addresses, folders, and access](/concepts/addresses).
 
-Откуда берётся доступ к адресу и как это видно в `participants`:
+Where address access comes from and how it shows up in `participants`:
 
 <MermaidDiagram chart={`
 flowchart TD
-SUB["Субъект: user | group"] --> A{"Куда выдан грант?"}
-A -->|адрес| SH["shares (viewer / contributor)"]
-A -->|папка| GR["folder grant → все адреса, вкл. будущие"]
-SH --> RES["Доступ к адресу"]
+SUB["Subject: user | group"] --> A{"Where is the grant issued?"}
+A -->|address| SH["shares (viewer / contributor)"]
+A -->|folder| GR["folder grant → all addresses, incl. future ones"]
+SH --> RES["Address access"]
 GR --> RES
-RES --> VIA["participants.via: direct | user_group | папка"]
+RES --> VIA["participants.via: direct | user_group | folder"]
 `} />
 
-## Что понадобится
+## Prerequisites
 
-- `code` Vault'а и id адреса или папки.
-- Субъект: `userId` или id группы.
-- Токен доступа (см. [Аутентификацию](/authentication)).
+- The Vault's `code` and the id of the address or folder.
+- A subject: a `userId` or a group id.
+- An access token (see [Authentication](/authentication)).
 
-Роли доступа:
+Access roles:
 
-| Роль          | Что примерно даёт                                                                            |
-| ------------- | -------------------------------------------------------------------------------------------- |
-| `viewer`      | просмотр адреса/папки и её адресов                                                           |
-| `contributor` | расширенные права (точный набор - на странице [Адреса, папки и доступ](/concepts/addresses)) |
+| Role          | What it roughly grants                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| `viewer`      | viewing the address, or the folder and its addresses                                           |
+| `contributor` | extended permissions (see [Addresses, folders, and access](/concepts/addresses) for the exact set) |
 
-Право `canCreateAddress` в роль не входит и выдаётся отдельно.
+The `canCreateAddress` permission isn't part of any role and is granted separately.
 
-## Шаг 1. Выдайте доступ к адресу
+## Step 1. Grant access to an address
 
-`POST /api/v1/vaults/{code}/addresses/{id}/shares` выдаёт грант на конкретный адрес. Субъект полиморфен (`subjectType: user|group`), права задаются ролью.
+`POST /api/v1/vaults/{code}/addresses/{id}/shares` issues a grant on a specific address. The subject is polymorphic (`subjectType: user|group`), and permissions are set by the role.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -66,12 +66,12 @@ RES --> VIA["participants.via: direct | user_group | папка"]
 </CodeGroup>
 
 <Callout kind="info" collapsed="false">
-  Грант на адрес идемпотентен: повторная выдача тому же субъекту обновляет права и реактивирует отозванный грант - отдельного «изменить» не нужно. Пакетная форма - через `subjects[]`. Право `canCreateAddress` в роль не входит и выдаётся отдельно. Точную схему - в [Справочнике API](/api-reference).
+  An address grant is idempotent: granting again to the same subject updates the permissions and reactivates a revoked grant, so there's no separate "update" call. For the batch form, use `subjects[]`. The `canCreateAddress` permission isn't part of any role and is granted separately. See the [API Reference](/api-reference) for the exact schema.
 </Callout>
 
-## Шаг 2. Выдайте доступ к папке
+## Step 2. Grant access to a folder
 
-Грант на папку даёт права на все её адреса, включая добавленные позже:
+A folder grant gives permissions on all of the folder's addresses, including ones added later:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -101,18 +101,18 @@ RES --> VIA["participants.via: direct | user_group | папка"]
   ```
 </CodeGroup>
 
-## Шаг 3. Измените или отозовите грант
+## Step 3. Change or revoke a grant
 
-Куда обращаться для каждого действия:
+Which request to use for each action:
 
-| Действие                | Запрос                                             |
-| ----------------------- | -------------------------------------------------- |
-| выдать на адрес         | `POST .../addresses/{id}/shares`                   |
-| выдать на папку         | `POST .../address-folders/{id}/grants`             |
-| изменить грант папки    | `PATCH .../address-folders/{id}/grants/{grantId}`  |
-| отозвать грант папки    | `DELETE .../address-folders/{id}/grants/{grantId}` |
-| изменить адресный грант | повторный `POST .../shares` (идемпотентно)         |
-| отозвать адресный грант | `DELETE` на шер                                    |
+| Action                    | Request                                            |
+| ------------------------- | -------------------------------------------------- |
+| grant on an address       | `POST .../addresses/{id}/shares`                   |
+| grant on a folder         | `POST .../address-folders/{id}/grants`             |
+| change a folder grant     | `PATCH .../address-folders/{id}/grants/{grantId}`  |
+| revoke a folder grant     | `DELETE .../address-folders/{id}/grants/{grantId}` |
+| change an address grant   | repeat `POST .../shares` (idempotent)              |
+| revoke an address grant   | `DELETE` on the share                              |
 
 <CodeGroup show-lines="true">
   ```bash
@@ -143,10 +143,10 @@ RES --> VIA["participants.via: direct | user_group | папка"]
 </CodeGroup>
 
 <Callout kind="info" collapsed="false">
-  Отзыв гранта на группу снимает доступ у всех её участников; личный грант отзывается точечно.
+  Revoking a group grant removes access for all of the group's members; a personal grant is revoked individually.
 </Callout>
 
-## Шаг 4. Проверьте, кто и откуда имеет доступ
+## Step 4. Check who has access and where it comes from
 
 <CodeGroup show-lines="true">
   ```bash
@@ -170,66 +170,65 @@ RES --> VIA["participants.via: direct | user_group | папка"]
   ```
 </CodeGroup>
 
-`participants` показывает людей (владелец отдан отдельно, группы раскрыты), а поле `via` - источник доступа и тем самым способ его убрать:
+`participants` lists people (the owner is returned separately, and groups are expanded), and the `via` field shows the source of access and therefore how to remove it:
 
-| `via`        | Источник              | Как убрать                                    |
-| ------------ | --------------------- | --------------------------------------------- |
-| `direct`     | личный грант на адрес | `DELETE` шера                                 |
-| `user_group` | грант на группу       | убрать из группы или отозвать групповой грант |
-| папка        | грант на папку        | изменить/отозвать грант папки                 |
+| `via`        | Source                        | How to remove                                  |
+| ------------ | ----------------------------- | ---------------------------------------------- |
+| `direct`     | personal grant on the address | `DELETE` the share                             |
+| `user_group` | group grant                   | remove from the group or revoke the group grant |
+| folder       | folder grant                  | change or revoke the folder grant              |
 
-Смежные списки:
+Related lists:
 
-| Список                       | Запрос                                |
-| ---------------------------- | ------------------------------------- |
-| выданное мне (только прямые) | `GET .../shared-with-me`              |
-| открытое мной                | `GET .../shared-by-me`                |
-| всё доступное мне            | `GET .../addresses?access=shared`     |
-| участники адреса             | `GET .../addresses/{id}/participants` |
+| List                               | Request                               |
+| ---------------------------------- | ------------------------------------- |
+| shared with me (direct only)       | `GET .../shared-with-me`              |
+| shared by me                       | `GET .../shared-by-me`                |
+| everything accessible to me        | `GET .../addresses?access=shared`     |
+| address participants               | `GET .../addresses/{id}/participants` |
 
-<Expandable title="Глоссарий" default-open="false">
-  - **share (шер)** — грант на конкретный адрес.
-  - **grant (грант папки)** — доступ на папку и все её адреса, включая будущие.
-  - **viewer / contributor** — роли доступа.
-  - **subjectType** — тип субъекта: `user` или `group`.
-  - **via** — источник доступа участника: `direct` / `user_group` / папка.
-  - **canCreateAddress** — отдельное право создавать адреса, не входит в роль.
+<Expandable title="Glossary" default-open="false">
+  - **share**: a grant on a specific address.
+  - **grant (folder grant)**: access to a folder and all its addresses, including future ones.
+  - **viewer / contributor**: access roles.
+  - **subjectType**: the subject type, `user` or `group`.
+  - **via**: a participant's source of access: `direct` / `user_group` / folder.
+  - **canCreateAddress**: a separate permission to create addresses, not part of any role.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                         | Причина                                                                |
-| ------------------------------- | ---------------------------------------------------------------------- |
-| грант «дублируется»             | повторный `POST /shares` не создаёт второй - он идемпотентно обновляет |
-| доступ не убрался               | снят личный грант, но остаётся через группу/папку - смотрите `via`     |
-| нет права создавать адрес       | `canCreateAddress` не входит в роль, выдаётся отдельно                 |
-| групповой отзыв затронул лишних | `DELETE` группового гранта снимает доступ у всех участников            |
-| будущий адрес недоступен        | грант выдан на адрес, а не на папку                                    |
+| Symptom                                  | Cause                                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| grant "duplicated"                       | a repeated `POST /shares` doesn't create a second grant; it updates idempotently   |
+| access wasn't removed                    | the personal grant was revoked, but access remains via a group or folder; check `via` |
+| no permission to create addresses        | `canCreateAddress` isn't part of any role and is granted separately                |
+| group revocation affected too many people | `DELETE` on a group grant removes access for all of its members                   |
+| a future address isn't accessible        | the grant was issued on an address, not a folder                                   |
 
-## Готово, если
+## You're done when
 
-- `POST` шера/гранта создал доступ с нужной ролью;
-- `PATCH` меняет роль папочного гранта, `DELETE` отзывает;
-- `participants.via` показывает источник доступа;
-- отзыв через нужный источник действительно снимает доступ.
+- `POST` on a share or grant has created access with the right role;
+- `PATCH` changes a folder grant's role, and `DELETE` revokes it;
+- `participants.via` shows the source of access;
+- revoking through the right source actually removes access.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Адреса, папки и доступ" href="/concepts/addresses" icon="wallet" horizontal="false">
-    Роли, источники доступа и изоляция видимости.
+  <Card title="Addresses, folders, and access" href="/concepts/addresses" icon="wallet" horizontal="false">
+    Roles, access sources, and visibility isolation.
   </Card>
 
-  <Card title="Пригласить команду" href="/guides/invite-team" icon="user-plus" horizontal="false">
-    Приглашения, группы и участники.
+  <Card title="Invite your team" href="/guides/invite-team" icon="user-plus" horizontal="false">
+    Invitations, groups, and members.
   </Card>
 
-  <Card title="Модель доступа" href="/platform/access-model" icon="shield" horizontal="false">
-    Как доступ проверяется на уровне платформы.
+  <Card title="Access model" href="/platform/access-model" icon="shield" horizontal="false">
+    How access is enforced at the platform level.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Шеры, гранты папок и participants.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Shares, folder grants, and participants.
   </Card>
 </Columns>
-

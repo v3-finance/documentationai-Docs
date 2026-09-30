@@ -1,69 +1,69 @@
 ---
-title: Обзор
+title: Overview
 description: >-
-  Сквозные технические темы платформы V3 Custody - окружения, точность сумм,
-  пагинация, идемпотентность, ошибки, вебхуки и модель доступа.
+  Cross-cutting technical topics of the V3 Custody platform: environments,
+  amount precision, pagination, idempotency, errors, webhooks, and the access
+  model.
 ---
-Раздел **Платформа&#xA0;**- это сквозные технические темы, общие для всего API: как адресовать инстанс, как читать суммы, как листать и фильтровать, как обрабатывать ошибки и вебхуки. На эти темы опираются и [гайды](/guides/overview), и [концепты](/concepts/overview).
+The **Platform** section covers cross-cutting technical topics shared across the entire API: how to address your instance, how to read amounts, how to page and filter, and how to handle errors and webhooks. Both the [guides](/guides/overview) and the [concepts](/concepts/overview) build on these topics.
 
-## Что понадобится
+## Prerequisites
 
-- Базовый URL инстанса - в примерах `[BASE_URL]`.
-- Токен доступа для заголовка `Authorization` (см. [Аутентификацию](/authentication)).
+- Your instance's base URL, shown as `[BASE_URL]` in the examples.
+- An access token for the `Authorization` header (see [Authentication](/authentication)).
 
-## Что здесь есть
+## What's in this section
 
 <Columns cols="2">
-  <Card title="Окружения и базовые URL" href="/platform/environments" icon="server" horizontal="false">
-    Как адресовать свой инстанс; префикс /api/v1.
+  <Card title="Environments and base URLs" href="/platform/environments" icon="server" horizontal="false">
+    How to address your instance; the /api/v1 prefix.
   </Card>
 
-  <Card title="Аутентификация детально" href="/platform/authentication" icon="key-round" horizontal="false">
-    magic-link, сессия, Bearer и cookie.
+  <Card title="Authentication in depth" href="/platform/authentication" icon="key-round" horizontal="false">
+    Magic link, sessions, Bearer, and cookies.
   </Card>
 
-  <Card title="Суммы и точность" href="/platform/amounts-precision" icon="calculator" horizontal="false">
-    raw-единицы и десятичное представление.
+  <Card title="Amounts and precision" href="/platform/amounts-precision" icon="calculator" horizontal="false">
+    Raw units and decimal representation.
   </Card>
 
-  <Card title="Пагинация и фильтры" href="/platform/pagination-filtering" icon="chevrons-right" horizontal="false">
-    keyset-пагинация и общие фильтры.
+  <Card title="Pagination and filters" href="/platform/pagination-filtering" icon="chevrons-right" horizontal="false">
+    Keyset pagination and common filters.
   </Card>
 
-  <Card title="Идемпотентность" href="/platform/idempotency" icon="repeat" horizontal="false">
-    Безопасные ретраи через idempotencyKey.
+  <Card title="Idempotency" href="/platform/idempotency" icon="repeat" horizontal="false">
+    Safe retries with idempotencyKey.
   </Card>
 
-  <Card title="Модель ошибок" href="/platform/errors" icon="alert-circle" horizontal="false">
-    Структура ответов с ошибками и коды.
+  <Card title="Error model" href="/platform/errors" icon="alert-circle" horizontal="false">
+    Error response structure and codes.
   </Card>
 
-  <Card title="Вебхуки" href="/platform/webhooks" icon="webhook" horizontal="false">
-    Входящие события Wallet Service.
+  <Card title="Webhooks" href="/platform/webhooks" icon="webhook" horizontal="false">
+    Incoming Wallet Service events.
   </Card>
 
-  <Card title="Модель доступа" href="/platform/access-model" icon="shield" horizontal="false">
-    Изоляция видимости и права через группы.
+  <Card title="Access model" href="/platform/access-model" icon="shield" horizontal="false">
+    Visibility isolation and group-based permissions.
   </Card>
 
-  <Card title="Активы и сети" href="/platform/assets-networks" icon="coins" horizontal="false">
-    Реестр Network и токены по contract address.
+  <Card title="Assets and networks" href="/platform/assets-networks" icon="coins" horizontal="false">
+    The Network registry and tokens by contract address.
   </Card>
 </Columns>
 
-## Смежные разделы
+## Related sections
 
 <Columns cols="2">
-  <Card title="Быстрый старт" href="/quickstart" icon="zap" horizontal="false">
-    Первые вызовы к API за несколько минут.
+  <Card title="Quickstart" href="/quickstart" icon="zap" horizontal="false">
+    Your first API calls in a few minutes.
   </Card>
 
-  <Card title="Руководства" href="/guides/overview" icon="list-checks" horizontal="false" target="_self">
-    Пошаговые сценарии с реальными запросами.
+  <Card title="Guides" href="/guides/overview" icon="list-checks" horizontal="false" target="_self">
+    Step-by-step scenarios with real requests.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Все эндпоинты, параметры и форматы ответов.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    All endpoints, parameters, and response formats.
   </Card>
 </Columns>
-

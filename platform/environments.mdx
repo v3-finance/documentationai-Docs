@@ -1,40 +1,40 @@
 ---
-title: Окружения и базовые URL
+title: Environments and base URLs
 description: >-
-  Как адресовать свой инстанс V3 Custody - базовый URL, префикс /api/v1 и путь
-  вебхуков, соглашение [BASE_URL] в примерах.
+  How to address your V3 Custody instance: the base URL, the /api/v1 prefix,
+  the webhook path, and the [BASE_URL] convention used in examples.
 ---
-V3 Custody - self-hosted: вы разворачиваете платформу в своём окружении, поэтому базовый URL - это адрес вашего инстанса. Во всей документации он обозначен как `[BASE_URL]`; замените его на реальный адрес.
+V3 Custody is self-hosted: you deploy the platform in your own environment, so the base URL is the address of your instance. Throughout the documentation it appears as `[BASE_URL]`; replace it with your actual address.
 
-Структура адресов инстанса:
+How instance addresses are structured:
 
 <MermaidDiagram chart={`
 flowchart TD
-BU["[BASE_URL] — корень инстанса"] --> API["/api/v1 — основной префикс"]
-BU --> WH["/webhooks/wallet — вне /api/v1"]
+BU["[BASE_URL] — instance root"] --> API["/api/v1 — main prefix"]
+BU --> WH["/webhooks/wallet — outside /api/v1"]
 API --> VS["/vaults/{code}/... — vault-scoped"]
-API --> TL["/evaluate, /policies, /invitations — топ-левел"]
+API --> TL["/evaluate, /policies, /invitations — top-level"]
 `} />
 
-## Базовый URL
+## Base URL
 
-`[BASE_URL]` - корень вашего инстанса. Он подставляется во все примеры (легко найти по квадратным скобкам и заменить одним поиском).
+`[BASE_URL]` is the root of your instance. It's used in every example (easy to spot by the square brackets and replace with a single search).
 
 <Callout kind="info" collapsed="false">
-  Публичный прод-адрес пока не зафиксирован - \[TODO: указать прод-URL]. До этого используйте адрес своего окружения.
+  The public production address hasn't been finalized yet. \[TODO: add the production URL.] Until then, use your own environment's address.
 </Callout>
 
-## Области адресации
+## Addressing scopes
 
-Почти все эндпоинты живут под `/api/v1`; вебхуки - исключение:
+Almost all endpoints live under `/api/v1`; webhooks are the exception:
 
-| Область      | Шаблон пути                           | Примеры                                         |
+| Scope        | Path pattern                          | Examples                                        |
 | ------------ | ------------------------------------- | ----------------------------------------------- |
 | vault-scoped | `[BASE_URL]/api/v1/vaults/{code}/...` | `balances`, `transfers`, `reports`, `addresses` |
-| топ-левел    | `[BASE_URL]/api/v1/...`               | `evaluate`, `policies`, `invitations`           |
-| вебхуки      | `[BASE_URL]/webhooks/...`             | `webhooks/wallet` (`TOPUP`)                     |
+| top-level    | `[BASE_URL]/api/v1/...`               | `evaluate`, `policies`, `invitations`           |
+| webhooks     | `[BASE_URL]/webhooks/...`             | `webhooks/wallet` (`TOPUP`)                     |
 
-Примеры путей:
+Example paths:
 
 ```typescript
 GET  [BASE_URL]/api/v1/vaults
@@ -43,13 +43,13 @@ POST [BASE_URL]/api/v1/vaults/acme-otc/transfers
 POST [BASE_URL]/api/v1/evaluate
 ```
 
-## Вебхуки - вне `/api/v1`
+## Webhooks live outside `/api/v1`
 
-Входящий вебхук Wallet Service живёт отдельно от префикса API: `[BASE_URL]/webhooks/wallet` - сюда Wallet Service присылает события (`TOPUP`). Подробнее - в гайде [Обработать входящее поступление](/guides/handle-deposit).
+The incoming Wallet Service webhook lives separately from the API prefix, at `[BASE_URL]/webhooks/wallet`. This is where Wallet Service sends its events (`TOPUP`). For details, see the [Handle an incoming deposit](/guides/handle-deposit) guide.
 
-## Соглашение в примерах
+## Conventions in examples
 
-Во всех примерах базовый URL и токен вынесены в переменные окружения:
+In all examples, the base URL and token are stored in environment variables:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -70,44 +70,43 @@ POST [BASE_URL]/api/v1/evaluate
   ```
 </CodeGroup>
 
-Токен передаётся в заголовке `Authorization: Bearer <токен>` - см. [Аутентификацию](/authentication).
+The token is passed in the `Authorization: Bearer <token>` header. See [Authentication](/authentication).
 
-<Expandable title="Глоссарий" default-open="false">
-  - **self-hosted** - платформа развёрнута в вашем окружении; базовый URL = адрес инстанса.
-  - **\[BASE\_URL]** - плейсхолдер корня инстанса в примерах.
-  - **/api/v1** - основной префикс версии API.
-  - **vault-scoped** - эндпоинты под конкретный Vault (`/vaults/{code}/...`).
-  - **топ-левел** - эндпоинты вне vault-scope (`/evaluate`, `/policies`, `/invitations`).
-  - {code} - адресация Vault'а по его `code` в пути (не по id).
+<Expandable title="Glossary" default-open="false">
+  - **self-hosted**: the platform is deployed in your environment; the base URL is your instance's address.
+  - **\[BASE\_URL]**: the placeholder for the instance root in examples.
+  - **/api/v1**: the main API version prefix.
+  - **vault-scoped**: endpoints tied to a specific Vault (`/vaults/{code}/...`).
+  - **top-level**: endpoints outside the vault scope (`/evaluate`, `/policies`, `/invitations`).
+  - **`{code}`**: a Vault is addressed in the path by its `code` (not by its id).
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                    | Причина                                                         |
-| -------------------------- | --------------------------------------------------------------- |
-| `404` на всех вызовах      | забыт префикс `/api/v1`                                         |
-| вебхук не доходит          | его шлут под `/api/v1` - он вне префикса, на `/webhooks/wallet` |
-| Vault не находится в пути  | в пути ожидается `code`, а передан id                           |
-| в запрос ушёл `[BASE_URL]` | плейсхолдер не заменён на адрес инстанса                        |
-| двойной `//` в URL         | `BASE_URL` с завершающим слэшем + путь с ведущим слэшем         |
+| Symptom                        | Cause                                                                       |
+| ------------------------------ | --------------------------------------------------------------------------- |
+| `404` on every call            | the `/api/v1` prefix is missing                                             |
+| webhook doesn't arrive         | it's being sent under `/api/v1`, but it lives outside the prefix, at `/webhooks/wallet` |
+| Vault not found by path        | the path expects the `code`, but an id was passed                           |
+| `[BASE_URL]` sent in a request | the placeholder wasn't replaced with the instance address                  |
+| double `//` in the URL         | `BASE_URL` ends with a slash and the path starts with one                   |
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Быстрый старт" href="/quickstart" icon="zap" horizontal="false">
-    Первые вызовы к API с этим базовым URL.
+  <Card title="Quickstart" href="/quickstart" icon="zap" horizontal="false">
+    Your first API calls with this base URL.
   </Card>
 
-  <Card title="Аутентификация" href="/authentication" icon="lock" horizontal="false">
-    Bearer-токен и доступ по приглашению.
+  <Card title="Authentication" href="/authentication" icon="lock" horizontal="false">
+    Bearer tokens and invite-based access.
   </Card>
 
-  <Card title="Вебхуки" href="/platform/webhooks" icon="webhook" horizontal="false">
-    Входящие события и их обработка.
+  <Card title="Webhooks" href="/platform/webhooks" icon="webhook" horizontal="false">
+    Incoming events and how they're processed.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Полный список эндпоинтов под /api/v1.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    The full list of endpoints under /api/v1.
   </Card>
 </Columns>
-

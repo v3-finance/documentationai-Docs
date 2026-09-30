@@ -1,20 +1,20 @@
 ---
-title: Сгенерировать адреса
+title: Generate addresses
 description: >-
-  Создавать адреса по статическим сегментам, получать пачку за счёт
-  авто-инкремента динамического сегмента и группировать их в папку.
+  Create addresses from static segments, generate a batch by auto-incrementing
+  the dynamic segment, and group them into a folder.
 ---
-Когда схема Vault'а готова ([Создать Vault](/guides/create-vault)), создать адрес - значит выбрать значения статических сегментов; индекс динамического сегмента платформа присвоит сама. Повторяя запрос, вы получаете пачку адресов в одном поддереве. Про модель адресов - на странице [Адреса, папки и доступ](/concepts/addresses).
+Once your Vault's schema is ready ([Create a Vault](/guides/create-vault)), creating an address means choosing values for the static segments; the platform assigns the dynamic segment's index for you. By repeating the request, you get a batch of addresses in the same subtree. For the address model, see [Addresses, folders, and access](/concepts/addresses).
 
-## Что понадобится
+## Prerequisites
 
-- Vault со схемой деривации - см. [Создать Vault](/guides/create-vault). В примерах `acme-otc`.
-- Токен доступа (см. [Аутентификацию](/authentication)) и, если создание гейтится, право `canCreateAddress`.
-- Любой HTTP‑клиент.
+- A Vault with a derivation schema. See [Create a Vault](/guides/create-vault). The examples use `acme-otc`.
+- An access token (see [Authentication](/authentication)) and, if address creation is gated, the `canCreateAddress` permission.
+- Any HTTP client.
 
-## Шаг 1. Создайте один адрес
+## Step 1. Create a single address
 
-Отправьте `POST /api/v1/vaults/{code}/addresses` с кодом сети (`networkCode`) и значениями статических сегментов (`staticSegments`). Индекс динамического сегмента подбирается автоматически.
+Send `POST /api/v1/vaults/{code}/addresses` with the network code (`networkCode`) and the static segment values (`staticSegments`). The dynamic segment's index is assigned automatically.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -64,15 +64,15 @@ description: >-
 }
 ```
 
-Под капотом платформа считает следующий свободный индекс для этой комбинации сегментов, собирает канонический путь и прогоняет создание через Policy Engine (`action=create_address`).
+Under the hood, the platform calculates the next free index for this combination of segments, builds the canonical path, and runs the creation through the Policy Engine (`action=create_address`).
 
 <Callout kind="info" collapsed="false">
-  Адрес готов к работе сразу - активация и предварительное пополнение не нужны, комиссию берёт на себя Gas Station.
+  The address is ready to use immediately. No activation or prefunding is needed, since Gas Station covers the fees.
 </Callout>
 
-## Шаг 2. Сгенерируйте пачку
+## Step 2. Generate a batch
 
-Отдельного «пакетного» эндпоинта нет - пачка получается повторными вызовами. Каждый вызов с **той же** комбинацией статических сегментов получает следующий свободный индекс динамического сегмента, поэтому N запросов дают N адресов в одном поддереве.
+There's no separate batch endpoint; you get a batch through repeated calls. Each call with the **same** combination of static segments gets the next free index of the dynamic segment, so N requests produce N addresses in the same subtree.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -120,21 +120,21 @@ description: >-
 </CodeGroup>
 
 <Callout kind="info" collapsed="false">
-  Расчёт индекса устойчив к гонкам (SQL MAX с повтором при конфликте), поэтому параллельные запросы не займут один путь.
+  Index calculation is race-safe (SQL MAX with a retry on conflict), so concurrent requests can't claim the same path.
 </Callout>
 
-## Если создание требует подтверждения
+## If creation requires approval
 
-Если политика гейтит создание адреса, `POST /addresses` вернёт `202` с идентификатором заявки вместо адреса - обрабатывайте оба случая. Дальше:
+If a policy gates address creation, `POST /addresses` returns `202` with an approval request id instead of an address, so handle both cases. Then:
 
-- смотрите статус заявки: `GET /api/v1/vaults/{code}/approval-requests/{id}`;
-- адрес появится, когда заявка наберёт порог (`APPROVED`).
+- check the request status: `GET /api/v1/vaults/{code}/approval-requests/{id}`;
+- the address appears once the request reaches its threshold (`APPROVED`).
 
-Подробнее о заявках - на странице [Аппрувалы](/concepts/approvals).
+For more on approval requests, see [Approvals](/concepts/approvals).
 
-## Шаг 3. Найдите созданные адреса
+## Step 3. Find the created addresses
 
-Проверьте, что адреса появились:
+Check that the addresses have appeared:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -159,21 +159,21 @@ description: >-
   ```
 </CodeGroup>
 
-`GET /api/v1/vaults/{code}/addresses` поддерживает фильтры `search`, `token` и `access=shared`.
+`GET /api/v1/vaults/{code}/addresses` supports the `search`, `token`, and `access=shared` filters.
 
-## Шаг 4. Сгруппируйте в папку (опционально)
+## Step 4. Group addresses into a folder (optional)
 
-Если адреса нужно вести и делиться ними вместе, сложите их в папку: один грант на папку покроет все адреса, включая добавленные позже.
+If you need to manage and share addresses together, put them in a folder: a single folder grant covers all of its addresses, including ones added later.
 
 <CodeGroup show-lines="true">
   ```bash
-  # создать папку
+  # create a folder
   curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/address-folders" \
     -H "Authorization: Bearer $V3_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{ "name": "Invoices — USDT" }'
 
-  # добавить в неё адрес
+  # add an address to it
   curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/address-folders/FOLDER_ID/members" \
     -H "Authorization: Bearer $V3_TOKEN" \
     -H "Content-Type: application/json" \
@@ -181,14 +181,14 @@ description: >-
   ```
 
   ```javascript
-  // создать папку
+  // create a folder
   const folder = await fetch("[BASE_URL]/api/v1/vaults/acme-otc/address-folders", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.V3_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ name: "Invoices — USDT" }),
   }).then((r) => r.json());
 
-  // добавить адрес
+  // add an address
   await fetch(`[BASE_URL]/api/v1/vaults/acme-otc/address-folders/${folder.id}/members`, {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.V3_TOKEN}`, "Content-Type": "application/json" },
@@ -197,14 +197,14 @@ description: >-
   ```
 
   ```python
-  # создать папку
+  # create a folder
   folder = requests.post(
       "[BASE_URL]/api/v1/vaults/acme-otc/address-folders",
       headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
       json={"name": "Invoices — USDT"},
   ).json()
 
-  # добавить адрес
+  # add an address
   requests.post(
       f"[BASE_URL]/api/v1/vaults/acme-otc/address-folders/{folder['id']}/members",
       headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
@@ -214,41 +214,40 @@ description: >-
 </CodeGroup>
 
 <Callout kind="alert" collapsed="false">
-  Имена полей в телах (`name`, `addressId`) даны для примера - точные схемы папки и её членов сверьте со [Справочником API](/api-reference).
+  The body field names (`name`, `addressId`) are for illustration only. Check the exact schemas for folders and their members in the [API Reference](/api-reference).
 </Callout>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                     | Причина                                             |
-| --------------------------- | --------------------------------------------------- |
-| `networkCode` не распознан  | сеть не подключена к Vault'у или неверный код       |
-| значение сегмента отклонено | статического варианта нет в схеме или он `disabled` |
-| `403` при создании          | нет права `canCreateAddress` или запрет политики    |
-| пришёл `202`, а не адрес    | создание гейтится - ждёт подтверждения (см. выше)   |
+| Symptom                           | Cause                                                              |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `networkCode` not recognized      | the network isn't connected to the Vault, or the code is wrong     |
+| segment value rejected            | the static option doesn't exist in the schema or is `disabled`     |
+| `403` on creation                 | missing `canCreateAddress` permission, or forbidden by a policy    |
+| got `202` instead of an address   | creation is gated and awaiting approval (see above)                |
 
-## Готово, если
+## You're done when
 
-- новые адреса видны в `GET /api/v1/vaults/{code}/addresses`;
-- `derivationPath` соответствует вашей схеме (`m/44/{coinType}/...`);
-- (опционально) адреса собраны в папку.
+- the new addresses are visible in `GET /api/v1/vaults/{code}/addresses`;
+- the `derivationPath` matches your schema (`m/44/{coinType}/...`);
+- (optional) the addresses are grouped into a folder.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
-    Следующий шаг: отправить средства с этих адресов.
+  <Card title="Send a transfer" href="/guides/send-transfer" icon="send" horizontal="false">
+    Next step: send funds from these addresses.
   </Card>
 
-  <Card title="Выдать и отозвать доступ" href="/guides/share-access" icon="share-2" horizontal="false">
-    Открыть доступ к адресам и папкам.
+  <Card title="Share and revoke access" href="/guides/share-access" icon="share-2" horizontal="false">
+    Share access to addresses and folders.
   </Card>
 
-  <Card title="Адреса, папки и доступ" href="/concepts/addresses" icon="wallet" horizontal="false">
-    Как работает доступ, папки и изоляция видимости.
+  <Card title="Addresses, folders, and access" href="/concepts/addresses" icon="wallet" horizontal="false">
+    How access, folders, and visibility isolation work.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Точные схемы создания адреса и папок.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Exact schemas for creating addresses and folders.
   </Card>
 </Columns>
-

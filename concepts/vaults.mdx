@@ -1,78 +1,78 @@
 ---
-title: Vault и деривация
+title: Vaults and derivation
 description: >-
-  Vault - это дерево адресов, которое вы проектируете сами. Сегменты деривации
-  становятся детерминированными путями, а путь адреса - вашей моделью учёта.
+  A Vault is an address tree you design yourself. Derivation segments become
+  deterministic paths, and an address's path becomes your accounting model.
 ---
-Vault - это отдельное пространство вашей организации в V3 Custody: у него есть код (`code`, slug), имя и, что самое главное, **структура деривации**, которую вы задаёте сами. Почти все маршруты API начинаются с кода Vault'а, а все адреса, балансы, политики и отчёты живут внутри него.
+A Vault is your organization's dedicated space in V3 Custody: it has a code (`code`, a slug), a name, and, most importantly, a **derivation structure** that you define yourself. Almost every API route starts with the Vault's code, and all addresses, balances, policies, and reports live inside it.
 
-[Введение](/introduction) уже описало Vault в двух словах. Здесь разберём, из чего он собран и как из ваших сегментов получаются детерминированные адреса.
+The [Introduction](/introduction) already described Vaults in a nutshell. Here we'll look at what a Vault is made of and how your segments turn into deterministic addresses.
 
-## Схему адресов вы проектируете сами
+## You design the address schema
 
-Обычный кошелёк выдаёт адреса «как получится». Vault идёт от обратного: вы описываете, **какими осями** различаются ваши адреса, а платформа превращает это в дерево путей деривации.
+A typical wallet hands out addresses however it happens to. A Vault works the other way around: you describe **which axes** your addresses differ by, and the platform turns that into a tree of derivation paths.
 
-Каждый адрес - это лист дерева. Дорога от корня к листу состоит из сегментов, и каждый сегмент отвечает за одну ось: сеть, назначение, актив, клиент, стадия - набор выбираете вы. Порядок сегментов фиксирован: он и определяет форму пути.
+Each address is a leaf of the tree. The route from the root to a leaf consists of segments, and each segment is responsible for one axis: network, purpose, asset, client, stage. You choose the set. The segment order is fixed, and it defines the shape of the path.
 
-Вот как выглядит дерево на примере. Каждый уровень ниже `network` ветвится по своим вариантам, а лист - это конкретный адрес:
+Here's what the tree looks like in an example. Each level below `network` branches by its options, and a leaf is a specific address:
 
 <MermaidDiagram chart={`
 flowchart TD
 V["Vault · acme-otc"] --> N["network · TRON (coinType 195)"]
 N --> P["purpose · invoices | settlement"]
 P --> A["asset · usdt | usdc"]
-A --> C["client · 0..2^31-1 (динамический)"]
-C --> L["адрес-лист · m/44/195/0/0/42"]
+A --> C["client · 0..2^31-1 (dynamic)"]
+C --> L["leaf address · m/44/195/0/0/42"]
 `} />
 
-## Сеть - обязательный первый сегмент
+## The network is the required first segment
 
-В структуре есть один особый сегмент - `network`. Он определяет блокчейн и его `coinType` по стандарту BIP‑44 (например, TRON - 195, Ethereum - 60). Значения сети попадают в глобальный реестр Network, а путь всегда начинается с `m/44/{coinType}/...`.
+The structure has one special segment: `network`. It defines the blockchain and its `coinType` per the BIP‑44 standard (for example, TRON is 195, Ethereum is 60). Network values are added to the global Network registry, and a path always starts with `m/44/{coinType}/...`.
 
-Один Vault может держать несколько сетей: к нему подключаются нужные `coinType`, и под каждую строится своя ветка.
+A single Vault can hold multiple networks: you connect the `coinType` values you need, and each gets its own branch.
 
-## Сегменты: статические и динамические
+## Segments: static and dynamic
 
-Остальные сегменты - это **Route'ы**, упорядоченные полем `order` (нормализуется от 0). Route бывает двух видов:
+The remaining segments are **Routes**, ordered by the `order` field (normalized starting from 0). A Route comes in two kinds:
 
-- **Статический** - закрытый список вариантов, который вы задаёте заранее. Например, `purpose` = `invoices` | `settlement`, `asset` = `usdt` | `usdc`. Каждый вариант хранит свой индекс в пути; ненужные варианты можно отключить (`disabled`), не ломая уже выданные адреса.
-- **Динамический** - не список, а целочисленный индекс в диапазоне `[0, 2^31−1]`. Он даёт новую ветку на каждую сущность: на клиента, на заявку, на депозит. Именно так под каждого клиента заводится отдельное поддерево, а адресов в нём - сколько угодно.
+- **Static**: a closed list of options that you define upfront. For example, `purpose` = `invoices` | `settlement`, `asset` = `usdt` | `usdc`. Each option stores its own index in the path; options you no longer need can be disabled (`disabled`) without breaking addresses that were already issued.
+- **Dynamic**: not a list but an integer index in the range `[0, 2^31−1]`. It creates a new branch for each entity: per client, per request, per deposit. This is how each client gets their own subtree, with as many addresses in it as you need.
 
-|                  | Статический                 | Динамический                       |
-| ---------------- | --------------------------- | ---------------------------------- |
-| Что это          | закрытый список вариантов   | целочисленный индекс `[0, 2^31−1]` |
-| Примеры          | `purpose`, `asset`, `stage` | `client`, `invoice`, `deposit`     |
-| Сколько значений | немного, известны заранее   | сколько угодно, появляются на ходу |
-| Роль             | категория                   | экземпляр                          |
-| Изменение        | вариант можно `disabled`    | каждый новый индекс - новая ветка  |
+|                  | Static                           | Dynamic                              |
+| ---------------- | -------------------------------- | ------------------------------------ |
+| What it is       | a closed list of options         | an integer index `[0, 2^31−1]`       |
+| Examples         | `purpose`, `asset`, `stage`      | `client`, `invoice`, `deposit`       |
+| Number of values | few, known in advance            | unlimited, appear on the fly         |
+| Role             | category                         | instance                             |
+| Changes          | an option can be `disabled`      | each new index is a new branch       |
 
 <Callout kind="info" collapsed="false">
-  Смысл разделения простой: статические сегменты - это ваши **категории** (их немного, они известны заранее), динамические - ваши **экземпляры** (их много, они появляются на ходу).
+  The idea behind the split is simple: static segments are your **categories** (few, known in advance), and dynamic segments are your **instances** (many, appearing on the fly).
 </Callout>
 
-## Как из сегментов рождается адрес
+## How segments become an address
 
-Адрес создаётся выбором значения для каждого сегмента. Дальше платформа собирает канонический путь и заводит адрес:
+An address is created by choosing a value for each segment. The platform then builds the canonical path and creates the address:
 
 <Steps>
-  <Step title="Выбираются значения сегментов" icon="list" title-type="p">
-    Сеть (`networkCode`) и значения статических сегментов (`staticSegments`). Для динамических сегментов индекс подбирается автоматически.
+  <Step title="Segment values are chosen" icon="list" title-type="p">
+    The network (`networkCode`) and the static segment values (`staticSegments`). For dynamic segments, the index is assigned automatically.
   </Step>
 
-  <Step title="Считается следующий индекс" icon="hash" title-type="p">
-    Для этой комбинации сегментов берётся следующий свободный `pathIndex` (с повтором при конкурентном конфликте) - так два параллельных запроса не займут один путь.
+  <Step title="The next index is calculated" icon="hash" title-type="p">
+    The next free `pathIndex` is taken for this combination of segments (with a retry on a concurrency conflict), so two parallel requests can't claim the same path.
   </Step>
 
-  <Step title="Собирается канонический путь" icon="route" title-type="p">
-    Из значений строится путь вида `m/44/{coinType}/{seg0}/{seg1}/...` - по одному числу на сегмент, в фиксированном порядке.
+  <Step title="The canonical path is built" icon="route" title-type="p">
+    The values are turned into a path of the form `m/44/{coinType}/{seg0}/{seg1}/...`, one number per segment, in a fixed order.
   </Step>
 
-  <Step title="Проверяется политикой" icon="shield" title-type="p">
-    Создание адреса проходит через Policy Engine (`action=create_address`): он может разрешить, отклонить или отправить на подтверждение.
+  <Step title="Policy check" icon="shield" title-type="p">
+    Address creation goes through the Policy Engine (`action=create_address`), which can allow it, reject it, or send it for approval.
   </Step>
 </Steps>
 
-Пример создания адреса:
+Example of creating an address:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -111,103 +111,102 @@ C --> L["адрес-лист · m/44/195/0/0/42"]
   ```
 </CodeGroup>
 
-## Путь читается в обе стороны
+## A path reads both ways
 
-Поскольку путь детерминирован, его можно собрать из сегментов и разобрать обратно:
+Because the path is deterministic, you can build it from segments and parse it back:
 
-- `POST /api/v1/vaults/{code}/derivation-path/build` - собрать канонический путь из значений сегментов. Проверяет, что сеть подключена к Vault, присутствуют все Route'ы, статические варианты существуют и включены, а динамические значения - целые в допустимом диапазоне.
-- `POST /api/v1/vaults/{code}/derivation-path/parse` - разобрать путь обратно на сеть и значение каждого сегмента. Ошибётся, если префикс не `m/44/`, `coinType` не подключён к Vault или число сегментов не совпадает со структурой.
+- `POST /api/v1/vaults/{code}/derivation-path/build` builds the canonical path from segment values. It checks that the network is connected to the Vault, all Routes are present, the static options exist and are enabled, and the dynamic values are integers within the allowed range.
+- `POST /api/v1/vaults/{code}/derivation-path/parse` parses a path back into the network and each segment's value. It fails if the prefix isn't `m/44/`, the `coinType` isn't connected to the Vault, or the number of segments doesn't match the structure.
 
-Разберём путь на примере:
+Let's parse an example path:
 
 ```typescript
 m / 44 / 195 / 0 / 0 / 42
 ```
 
-- `44` - стандарт BIP‑44.
-- `195` - `network`: TRON (это и есть `coinType`).
-- `0` - `purpose`: `invoices` (статический вариант).
-- `0` - `asset`: `usdt` (статический вариант).
-- `42` - `client`: индекс 42 (динамический сегмент).
+- `44`: the BIP‑44 standard.
+- `195`: `network`: TRON (this is the `coinType`).
+- `0`: `purpose`: `invoices` (a static option).
+- `0`: `asset`: `usdt` (a static option).
+- `42`: `client`: index 42 (a dynamic segment).
 
-### Одна схема - много адресов
+### One schema, many addresses
 
-Одна и та же схема порождает сколько угодно адресов - меняются лишь значения сегментов:
+The same schema produces any number of addresses; only the segment values change:
 
-| purpose    | asset | client | Путь              | Что это                    |
-| ---------- | ----- | ------ | ----------------- | -------------------------- |
-| invoices   | usdt  | 42     | `m/44/195/0/0/42` | Инвойсы клиента 42, USDT   |
-| invoices   | usdt  | 43     | `m/44/195/0/0/43` | Инвойсы клиента 43, USDT   |
-| settlement | usdc  | 42     | `m/44/195/1/1/42` | Сеттлмент клиента 42, USDC |
+| purpose    | asset | client | Path              | What it is                       |
+| ---------- | ----- | ------ | ----------------- | -------------------------------- |
+| invoices   | usdt  | 42     | `m/44/195/0/0/42` | Client 42's invoices, USDT       |
+| invoices   | usdt  | 43     | `m/44/195/0/0/43` | Client 43's invoices, USDT       |
+| settlement | usdc  | 42     | `m/44/195/1/1/42` | Client 42's settlement, USDC     |
 
-(`purpose`: invoices = 0, settlement = 1; `asset`: usdt = 0, usdc = 1; `client` - индекс.)
+(`purpose`: invoices = 0, settlement = 1; `asset`: usdt = 0, usdc = 1; `client` is the index.)
 
-## Как проектировать схему
+## How to design a schema
 
-Проектируйте оси заранее - их порядок и состав потом менять тяжело:
+Design your axes upfront, since their order and composition are hard to change later:
 
-- **Идите от учёта и политик.** Сегменты станут осями отчётов и селекторами Policy Engine - выбирайте те, по которым реально будете сворачивать обороты и писать правила.
-- **Порядок фиксирован.** Он определяет форму пути; после того как выданы адреса, менять порядок нельзя. Продумайте его сразу.
-- **static - категории, dynamic - экземпляры.** Немного известных заранее значений → статический сегмент; много появляющихся на ходу сущностей → динамический.
-- **Не пере-сегментируйте.** Каждая ось умножает дерево. Добавляйте только то, по чему будете фильтровать, гейтить или отчитываться.
-- **Отключайте, а не удаляйте.** Ненужный статический вариант помечайте `disabled` - уже выданные адреса останутся валидными.
-- **Одна сеть — один&#x20;****`coinType`****.** Подключайте нужные сети; под каждую строится своя ветка.
-
-<Callout kind="alert" collapsed="false">
-  Порядок и набор Route'ов - это «схема БД» вашего Vault'а. Ошибку в них тяжело исправить задним числом, поэтому спроектируйте оси до создания Vault'а.
-</Callout>
-
-## Типовые паттерны
-
-- **Поддерево на клиента.** Динамический `client`: под каждого клиента - своя ветка, адресов в ней сколько угодно.
-- **Адрес на инвойс или заказ.** Динамический `invoice` / `order`: каждому счёту - отдельный адрес, чтобы поступления сверялись автоматически.
-- **Разделение по назначению или стадии.** Статические `purpose` (`invoices` / `settlement`) или `stage` (`hot` / `cold`) - чтобы писать разные политики и сворачивать отчёты по смыслу.
-
-## Почему дерево - это модель учёта
-
-Форма пути - не техническая деталь, а способ вести учёт:
-
-- **По адресу видно назначение.** `purpose=invoices`, `asset=usdt`, `client=42` - сразу понятно, что это адрес для инвойсов конкретного клиента, а не безымянная строка.
-- **Политики пишутся по тем же сегментам.** Policy Engine выбирает правила по сети, активу, назначению - тем же осям, что и дерево. Не нужно перечислять адреса вручную.
-- **Отчёты сворачиваются по осям.** Балансы и обороты агрегируются по сети, активу, назначению, клиенту - потому что это уже заложено в структуру.
-
-## Создание Vault
-
-Vault со всей структурой деривации создаётся одним запросом `POST /api/v1/vaults`. В теле передаётся `RouteMap` - карта сегментов, обязательно со спец‑ключом `network` (его варианты добавляются в реестр Network по `coinType`); остальные ключи становятся Route'ами, а их `order` нормализуется от 0 в порядке следования.
-
-Полную конфигурацию созданного Vault'а - подключённые сети (по `coinType`) и Route'ы (по `order`) со всеми вариантами - отдаёт `GET /api/v1/vaults/{code}`.
+- **Start from accounting and policies.** Segments become report dimensions and Policy Engine selectors, so choose the ones you'll actually use to roll up volumes and write rules.
+- **The order is fixed.** It defines the shape of the path, and once addresses have been issued, you can't change it. Think it through from the start.
+- **Static for categories, dynamic for instances.** A few values known in advance → a static segment; many entities appearing on the fly → a dynamic one.
+- **Don't over-segment.** Every axis multiplies the tree. Add only what you'll filter, gate, or report by.
+- **Disable, don't delete.** Mark a static option you no longer need as `disabled`, and addresses already issued stay valid.
+- **One network, one `coinType`.** Connect the networks you need; each gets its own branch.
 
 <Callout kind="alert" collapsed="false">
-  Точная схема тела `RouteMap` и всех полей - в [Справочнике API](/api-reference) на странице создания Vault'а. Здесь описан смысл структуры, а не формат запроса.
+  The order and set of Routes are your Vault's "database schema." Mistakes in them are hard to fix after the fact, so design your axes before creating the Vault.
 </Callout>
 
-## Термины
+## Common patterns
 
-<Expandable title="Словарь деривации" default-open="false">
-  - **Route** - сегмент-ось (все, кроме `network`), упорядоченный полем `order`.
-  - **Вариант (variant)** - конкретное значение статического Route'а (например, `invoices`).
-  - **`pathId`** - индекс варианта статического Route'а в пути.
-  - **`pathIndex`** - индекс, который платформа подбирает автоматически для комбинации сегментов при создании адреса.
-  - **`coinType`** - идентификатор сети по BIP‑44 (TRON - 195, Ethereum - 60).
+- **A subtree per client.** A dynamic `client` segment: each client gets their own branch, with as many addresses as needed.
+- **An address per invoice or order.** A dynamic `invoice` / `order` segment: each invoice gets its own address, so incoming payments reconcile automatically.
+- **Separation by purpose or stage.** A static `purpose` (`invoices` / `settlement`) or `stage` (`hot` / `cold`) segment, so you can write different policies and roll up reports by meaning.
+
+## Why the tree is your accounting model
+
+The shape of the path isn't a technical detail; it's a way of keeping your books:
+
+- **An address reveals its purpose.** `purpose=invoices`, `asset=usdt`, `client=42`: it's immediately clear that this is an invoicing address for a specific client, not an anonymous string.
+- **Policies are written against the same segments.** The Policy Engine selects rules by network, asset, and purpose, the same axes as the tree. There's no need to list addresses by hand.
+- **Reports roll up along the axes.** Balances and volumes are aggregated by network, asset, purpose, and client, because that's already built into the structure.
+
+## Creating a Vault
+
+A Vault with its entire derivation structure is created with a single `POST /api/v1/vaults` request. The body contains a `RouteMap`, a map of segments that must include the special `network` key (its options are added to the Network registry by `coinType`). The other keys become Routes, and their `order` is normalized starting from 0 in the order they appear.
+
+`GET /api/v1/vaults/{code}` returns the full configuration of the created Vault: the connected networks (by `coinType`) and the Routes (by `order`) with all their options.
+
+<Callout kind="alert" collapsed="false">
+  The exact schema of the `RouteMap` body and all its fields is on the create Vault page in the [API Reference](/api-reference). This page describes what the structure means, not the request format.
+</Callout>
+
+## Terms
+
+<Expandable title="Derivation glossary" default-open="false">
+  - **Route**: an axis segment (any segment other than `network`), ordered by the `order` field.
+  - **Variant**: a specific value of a static Route (for example, `invoices`).
+  - **`pathId`**: the index of a static Route's variant in the path.
+  - **`pathIndex`**: the index the platform assigns automatically to a combination of segments when creating an address.
+  - **`coinType`**: a network identifier per BIP‑44 (TRON is 195, Ethereum is 60).
 </Expandable>
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Создать Vault" href="/guides/create-vault" icon="folder-plus" horizontal="false">
-    Пошагово: спроектировать оси и завести Vault одним запросом.
+  <Card title="Create a Vault" href="/guides/create-vault" icon="folder-plus" horizontal="false">
+    Step by step: design your axes and create a Vault in a single request.
   </Card>
 
-  <Card title="Сгенерировать адреса" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
-    Статические сегменты и пакетное создание адресов.
+  <Card title="Generate addresses" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
+    Static segments and batch address creation.
   </Card>
 
-  <Card title="Обзор раздела" href="/concepts/overview" icon="compass" horizontal="false">
-    Как связаны Vault, адреса, журнал и политики.
+  <Card title="Section overview" href="/concepts/overview" icon="compass" horizontal="false">
+    How Vaults, addresses, the ledger, and policies fit together.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Создание Vault'а, адресов и разбор derivation path.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Creating Vaults and addresses, and parsing derivation paths.
   </Card>
 </Columns>
-

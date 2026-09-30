@@ -1,58 +1,59 @@
 ---
-title: 'Адреса, папки и доступ'
+title: 'Addresses, folders, and access'
 description: >-
-  Каждый адрес - это счёт в журнале. Видимость по умолчанию изолирована, а
-  доступ выдаётся ролями: точечно, на папку или на группу пользователей.
+  Every address is an account in the ledger. Visibility is isolated by default,
+  and access is granted through roles: per address, per folder, or to a user
+  group.
 ---
-Каждый адрес - это лист дерева Vault'а и одновременно счёт в журнале. На странице [Vault и деривация](/concepts/vaults) мы разобрали, как адреса появляются, здесь - как их организуют в папки и кто получает к ним доступ.
+Every address is a leaf of the Vault's tree and, at the same time, an account in the ledger. On the [Vaults and derivation](/concepts/vaults) page, we covered how addresses come into being; here we look at how they're organized into folders and who gets access to them.
 
-## Адрес - это счёт
+## An address is an account
 
-У адреса есть путь деривации, сеть и основной токен. Он принимает и отправляет средства, а его баланс делится на `available` и `reserved` (подробнее в [журнале](/concepts/ledger)). У каждого адреса есть владелец - тот, кто его создал.
+An address has a derivation path, a network, and a primary token. It receives and sends funds, and its balance is split into `available` and `reserved` (see the [ledger](/concepts/ledger) for details). Every address has an owner: the person who created it.
 
-- `GET /api/v1/vaults/{code}/addresses` - список адресов Vault'а с фильтрами: `search`, `token` (основной токен), `access=shared` (только доступное вам).
-- `GET /api/v1/vaults/{code}/addresses/{id}` - детали одного адреса: баланс и последние операции.
-- `PATCH /api/v1/vaults/{code}/addresses/{id}` - обновить адрес (например, переименовать).
+- `GET /api/v1/vaults/{code}/addresses` lists the Vault's addresses, with the `search`, `token` (primary token), and `access=shared` (only what's shared with you) filters.
+- `GET /api/v1/vaults/{code}/addresses/{id}` returns the details of a single address: its balance and recent operations.
+- `PATCH /api/v1/vaults/{code}/addresses/{id}` updates an address (for example, renames it).
 
-Создание адреса разобрано на странице Vault - там же про сегменты и derivation path.
+Address creation is covered on the Vault page, along with segments and derivation paths.
 
 <Callout kind="tip" collapsed="false">
-  Адрес может принять и другие токены, не только основной. Как такие поступления учитываются - на странице [журнала](/concepts/ledger).
+  An address can receive other tokens too, not just its primary one. For how such deposits are accounted for, see the [ledger](/concepts/ledger) page.
 </Callout>
 
-## Папки: адреса под одной крышей
+## Folders: addresses under one roof
 
-Папка - это именованный набор адресов. Она удобна, когда доступ и учёт нужно вести не по одному адресу, а по группе - например, «все адреса клиента» или «все инвойсные адреса».
+A folder is a named set of addresses. It's handy when you need to manage access and accounting for a group of addresses rather than one at a time, for example, "all of a client's addresses" or "all invoicing addresses."
 
 <Callout kind="info" collapsed="false">
-  В API у папки два имени-алиаса - `address-folders` и `address-groups`. После слияния это одна и та же сущность; можно использовать любой путь. Дальше в примерах - `address-folders`.
+  In the API, a folder has two alias names: `address-folders` and `address-groups`. After the merge, they're the same entity, and you can use either path. The examples below use `address-folders`.
 </Callout>
 
-- `POST /api/v1/vaults/{code}/address-folders` - создать папку.
-- `POST /api/v1/vaults/{code}/address-folders/{id}/members` - добавить адрес в папку.
-- `GET /api/v1/vaults/{code}/address-folders/{id}` - состав папки и выданные на неё гранты одним ответом.
+- `POST /api/v1/vaults/{code}/address-folders` creates a folder.
+- `POST /api/v1/vaults/{code}/address-folders/{id}/members` adds an address to a folder.
+- `GET /api/v1/vaults/{code}/address-folders/{id}` returns the folder's contents and the grants issued on it in a single response.
 
-У папки есть владелец - «менеджер» (у адреса владелец - создатель).
+A folder has an owner, the "manager" (an address's owner is its creator).
 
-## Доступ выдаётся ролями
+## Access is granted through roles
 
-Права и на адрес, и на папку задаются **ролью**:
+Permissions on both addresses and folders are defined by a **role**:
 
-| Роль          | Просмотр | Переводы |
-| ------------- | -------- | -------- |
-| `viewer`      | да       | нет      |
-| `contributor` | да       | да       |
+| Role          | View | Transfers |
+| ------------- | ---- | --------- |
+| `viewer`      | yes  | no        |
+| `contributor` | yes  | yes       |
 
-Право создавать адреса (`canCreateAddress`) в роль не входит и выдаётся отдельно.
+The permission to create addresses (`canCreateAddress`) isn't part of any role and is granted separately.
 
-Выдать доступ можно двумя способами:
+There are two ways to grant access:
 
-- **На адрес точечно** - `POST /api/v1/vaults/{code}/addresses/{id}/shares`. Одиночная форма выдаёт один грант, пакетная (`subjects[]`) - сразу нескольким субъектам.
-- **На папку целиком** - `POST /api/v1/vaults/{code}/address-folders/{id}/grants`. Субъект получает права на все адреса папки, **включая добавленные позже** - новый адрес в папке автоматически доступен всем, кому открыта папка.
+- **Per address**: `POST /api/v1/vaults/{code}/addresses/{id}/shares`. The single form issues one grant; the batch form (`subjects[]`) grants access to several subjects at once.
+- **To an entire folder**: `POST /api/v1/vaults/{code}/address-folders/{id}/grants`. The subject gets permissions on all of the folder's addresses, **including ones added later**: a new address in the folder is automatically accessible to everyone the folder is shared with.
 
-Субъектом гранта может быть **пользователь или группа пользователей**. Грант на группу - это доступ для всех её участников; отзывается он выходом из группы, а не точечно.
+The subject of a grant can be **a user or a user group**. A grant to a group gives access to all of its members; it's revoked by leaving the group, not individually.
 
-Пример: открыть коллеге доступ к адресу с правом переводов.
+Example: give a colleague access to an address with transfer permissions.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -82,7 +83,7 @@ description: >-
   ```
 </CodeGroup>
 
-А так - открыть целую папку группе пользователей на просмотр:
+And here's how to share an entire folder with a user group for viewing:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -113,86 +114,85 @@ description: >-
 </CodeGroup>
 
 <Callout kind="alert" collapsed="false">
-  Точные имена полей тела - в [Справочнике API](/api-reference) на страницах шэринга. Здесь показан смысл, а не формат.
+  The exact body field names are on the sharing pages in the [API Reference](/api-reference). This page shows the idea, not the format.
 </Callout>
 
-## Что выбрать: адрес, папка или группа
+## Which to choose: address, folder, or group
 
-Три способа решают разные задачи:
+The three methods solve different problems:
 
-- **На адрес точечно** - когда нужен разовый доступ к одному адресу.
-- **На папку** - когда адресов набор и доступ нужен на все, включая будущие (грант покрывает новые адреса автоматически).
-- **На группу пользователей** - когда доступ ролевой: выдаёте команде или роли, а управляете членством (добавили человека - доступ появился, убрали - пропал).
+- **Per address**: when you need one-off access to a single address.
+- **Per folder**: when you have a set of addresses and need access to all of them, including future ones (the grant covers new addresses automatically).
+- **To a user group**: when access is role-based: you grant it to a team or role and manage membership (add a person and they get access; remove them and it's gone).
 
-Способы комбинируются: можно открыть папку группе пользователей - тогда все адреса папки доступны всем участникам группы.
+The methods can be combined: you can share a folder with a user group, and then all of the folder's addresses are accessible to all members of the group.
 
-## Кто и откуда получил доступ
+## Who got access and from where
 
-Доступ к одному адресу может прийти из разных источников - личный грант, папка или группа пользователей:
+Access to a single address can come from different sources: a personal grant, a folder, or a user group:
 
 <MermaidDiagram chart={`
 flowchart LR
-A["Личный грант на адрес"] -->|via: direct| P["Участник (человек)"]
-F["Грант на папку"] -->|via: папка| P
-G["Грант на группу пользователей"] -->|via: user_group| P
+A["Personal grant on address"] -->|via: direct| P["Participant (person)"]
+F["Folder grant"] -->|via: folder| P
+G["User group grant"] -->|via: user_group| P
 `} />
 
-Поэтому важно видеть не сами гранты, а **людей** и то, **откуда** у каждого доступ:
+That's why it matters to see not the grants themselves, but the **people** and **where** each person's access comes from:
 
-- `GET /api/v1/vaults/{code}/addresses/{id}/participants` - список людей с доступом к адресу: группы пользователей раскрыты, доступ через папку учтён, владелец отдан отдельно.
+- `GET /api/v1/vaults/{code}/addresses/{id}/participants` returns the list of people with access to an address: user groups are expanded, folder access is included, and the owner is returned separately.
 
-Поле `via` объясняет источник доступа и тем самым способ его убрать:
+The `via` field explains the source of access and therefore how to remove it:
 
-| `via`        | Как получен доступ            | Как снять                                      |
-| ------------ | ----------------------------- | ---------------------------------------------- |
-| `direct`     | личный грант на адрес         | отозвать точечно                               |
-| `user_group` | грант на группу пользователей | вывести человека из группы                     |
-| папка        | грант на папку                | убрать адрес из папки или отозвать грант папки |
+| `via`        | How access was granted       | How to remove it                                       |
+| ------------ | ---------------------------- | ------------------------------------------------------ |
+| `direct`     | personal grant on the address | revoke it individually                                |
+| `user_group` | user group grant             | remove the person from the group                       |
+| folder       | folder grant                 | remove the address from the folder or revoke the folder grant |
 
-Смежные списки легко перепутать - вот что возвращает каждый:
+Related lists are easy to mix up. Here's what each one returns:
 
-| Эндпоинт                      | Что возвращает                                        |
-| ----------------------------- | ----------------------------------------------------- |
-| `addresses/{id}/participants` | люди с доступом к адресу (с `via`, владелец отдельно) |
-| `shared-with-me`              | только прямые гранты на адрес (без папок/групп)       |
-| `addresses?access=shared`     | всё доступное вам                                     |
-| `shared-by-me`                | что вы открыли другим (адреса и папки)                |
+| Endpoint                      | What it returns                                                   |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `addresses/{id}/participants` | people with access to the address (with `via`, owner separately)  |
+| `shared-with-me`              | only direct grants on addresses (no folders or groups)            |
+| `addresses?access=shared`     | everything accessible to you                                      |
+| `shared-by-me`                | what you've shared with others (addresses and folders)            |
 
-## Видимость по умолчанию изолирована
+## Visibility is isolated by default
 
-Доступ отвечает на вопрос «что можно делать», а видимость - «что вообще видно». По умолчанию обычный участник видит только свои адреса, операции и балансы; администратор - весь Vault. Права применяются ещё до агрегации, поэтому чужие данные не попадают даже в суммарные цифры.
+Access answers "what can you do," while visibility answers "what can you see at all." By default, a regular member sees only their own addresses, operations, and balances; an administrator sees the entire Vault. Permissions are applied before aggregation, so other members' data doesn't leak even into totals.
 
-Администратор может расширить видимость точечно:
+An administrator can expand visibility selectively:
 
-- `POST /api/v1/vaults/{code}/visibility-grants` - кто (`subjectType: user|group`) и кого видит (`scope: self|group|vault`). Например, дать роли комплаенса видимость по всему Vault'у.
+- `POST /api/v1/vaults/{code}/visibility-grants` specifies who (`subjectType: user|group`) and whose data they see (`scope: self|group|vault`). For example, you can give a compliance role visibility across the entire Vault.
 
-## Термины
+## Terms
 
-<Expandable title="Словарь доступа" default-open="false">
-  - **Владелец / менеджер** - создатель адреса / владелец папки; в списках отдаётся отдельно от участников.
-  - **Участник (participant)** - человек с доступом к адресу из любого источника.
-  - **Грант** - выданное право (роль) субъекту на адрес или папку.
-  - **`via`** — источник доступа участника (`direct` / `user_group` / папка).
-  - **Папка (группа адресов)** - именованный набор адресов; в API `address-folders` = `address-groups`.
+<Expandable title="Access glossary" default-open="false">
+  - **Owner / manager**: the creator of an address / the owner of a folder; returned separately from participants in lists.
+  - **Participant**: a person with access to an address from any source.
+  - **Grant**: a permission (role) issued to a subject on an address or folder.
+  - **`via`**: a participant's source of access (`direct` / `user_group` / folder).
+  - **Folder (address group)**: a named set of addresses; in the API, `address-folders` = `address-groups`.
 </Expandable>
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Выдать и отозвать доступ" href="/guides/share-access" icon="share-2" horizontal="false">
-    Пошагово: гранты, изменение, отзыв и аудит.
+  <Card title="Share and revoke access" href="/guides/share-access" icon="share-2" horizontal="false">
+    Step by step: grants, changes, revocation, and auditing.
   </Card>
 
-  <Card title="Сгенерировать адреса" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
-    Создание адресов и группировка в папки.
+  <Card title="Generate addresses" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
+    Creating addresses and grouping them into folders.
   </Card>
 
-  <Card title="Vault и деривация" href="/concepts/vaults" icon="folder-tree" horizontal="false">
-    Как адреса появляются из сегментов и derivation path.
+  <Card title="Vaults and derivation" href="/concepts/vaults" icon="folder-tree" horizontal="false">
+    How addresses arise from segments and derivation paths.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Адреса, папки, гранты и видимость.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Addresses, folders, grants, and visibility.
   </Card>
 </Columns>
-

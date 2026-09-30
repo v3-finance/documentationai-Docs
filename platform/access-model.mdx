@@ -1,102 +1,101 @@
 ---
-title: Модель доступа
+title: Access model
 description: >-
-  Как V3 Custody решает, что вам можно и что вам видно - членство в группах,
-  default-deny, роли на адресах и изоляция видимости.
+  How V3 Custody decides what you can do and what you can see: group
+  membership, default-deny, address roles, and visibility isolation.
 ---
-Аутентификация отвечает «кто вы», модель доступа - «что вам можно» и «что вам видно». Складываются три слоя; отдельных «скоупов» у токена нет:
+Authentication answers "who are you," while the access model answers "what are you allowed to do" and "what can you see." Three layers combine; tokens have no separate scopes:
 
-| Слой                   | Что определяет             | Механизм                       |
-| ---------------------- | -------------------------- | ------------------------------ |
-| членство в группах     | какие действия можно       | Policy Engine, default-deny    |
-| гранты на адреса/папки | роли на конкретных адресах | `viewer` / `contributor`       |
-| видимость              | что показывается           | изоляция + `visibility-grants` |
+| Layer                          | What it determines         | Mechanism                        |
+| ------------------------------ | -------------------------- | -------------------------------- |
+| group membership               | which actions are allowed  | Policy Engine, default-deny      |
+| address and folder grants      | roles on specific addresses | `viewer` / `contributor`        |
+| visibility                     | what is shown              | isolation + `visibility-grants`  |
 
 <MermaidDiagram chart={`
 flowchart TD
-A["1. Кто вы — аутентификация"] --> B["2. Какие действия — группы + Policy Engine (default-deny)"]
-B --> C["3. На каких адресах — роли viewer / contributor"]
-C --> D["4. Что видно — изоляция + visibility-grants"]
-D --> E["5. Какие поля — редакция чувствительных значений"]
+A["1. Who you are — authentication"] --> B["2. Which actions — groups + Policy Engine (default-deny)"]
+B --> C["3. On which addresses — viewer / contributor roles"]
+C --> D["4. What's visible — isolation + visibility-grants"]
+D --> E["5. Which fields — redaction of sensitive values"]
 `} />
 
-## Права через членство в группах
+## Permissions through group membership
 
-Действия проходят через Policy Engine, а политики берутся из ваших членств в группах. Права - это объединение allow-политик ваших групп. Работает **default-deny**: без разрешающей политики действие запрещено (`403`).
+Actions go through the Policy Engine, and the policies come from your group memberships. Your permissions are the union of your groups' allow policies. **Default-deny** applies: without an allowing policy, the action is forbidden (`403`).
 
-- `POST /api/v1/policy-groups/{id}/members` - добавить участника в группу.
-- `GET /api/v1/me/allowed-segments` - какие значения сегментов вам разрешены для действия.
+- `POST /api/v1/policy-groups/{id}/members` adds a member to a group.
+- `GET /api/v1/me/allowed-segments` returns which segment values you're allowed to use for an action.
 
-Подробнее - на странице [Policy Engine](/concepts/policy-engine) и в гайде [Пригласить команду](/guides/invite-team).
+For details, see [Policy Engine](/concepts/policy-engine) and the [Invite your team](/guides/invite-team) guide.
 
-## Роли на адресах
+## Address roles
 
-Доступ к конкретным адресам задаётся ролью: **`viewer`** (просмотр) или **`contributor`** (просмотр + переводы); право `canCreateAddress` - отдельно. Грант выдаётся на адрес (`/shares`) или на папку (`/grants`), пользователю или группе. Подробнее - в гайде [Выдать и отозвать доступ](/guides/share-access).
+Access to specific addresses is defined by a role: **`viewer`** (view) or **`contributor`** (view + transfers); the `canCreateAddress` permission is separate. A grant is issued on an address (`/shares`) or a folder (`/grants`), to a user or a group. For details, see the [Share and revoke access](/guides/share-access) guide.
 
-## Видимость
+## Visibility
 
-По умолчанию видимость изолирована: обычный участник видит только свои адреса, операции и балансы. Права применяются **ещё до агрегации**, поэтому чужие данные не попадают даже в суммарные цифры.
+Visibility is isolated by default: a regular member sees only their own addresses, operations, and balances. Permissions are applied **before aggregation**, so other members' data doesn't leak even into totals.
 
-Администратор расширяет видимость точечно через `POST /api/v1/vaults/{code}/visibility-grants` - кто (`subjectType: user|group`) и кого видит (`scope`):
+An administrator expands visibility selectively via `POST /api/v1/vaults/{code}/visibility-grants`, specifying who (`subjectType: user|group`) and whose data they see (`scope`):
 
-| `scope` | Что видит субъект   |
-| ------- | ------------------- |
-| `self`  | только своё         |
-| `group` | данные своей группы |
-| `vault` | весь Vault          |
+| `scope` | What the subject sees      |
+| ------- | -------------------------- |
+| `self`  | only their own data        |
+| `group` | their group's data         |
+| `vault` | the entire Vault           |
 
-## Роль администратора
+## Administrator role
 
-Администратор - **надзорная роль**: видит весь Vault, но сам не инициирует операции (у него нет собственных операций). Это разделяет «того, кто наблюдает» и «того, кто действует».
+The administrator is an **oversight role**: they see the entire Vault but don't initiate operations themselves (they have no operations of their own). This separates "the one who observes" from "the one who acts."
 
-## Скрытие чувствительных полей
+## Redacting sensitive fields
 
-Даже внутри видимых данных значения чувствительных полей редактируются под доступ: значение приходит `null`, а ключ попадает в `redactedFields`. Показывайте «скрыто», а не пустоту - это осознанная редакция, а не отсутствие данных.
+Even within visible data, sensitive field values are redacted based on access: the value comes back as `null`, and the key is added to `redactedFields`. Show "hidden" rather than an empty value: this is deliberate redaction, not missing data.
 
-## Как всё складывается
+## How it all fits together
 
-1. **Кто вы** - аутентификация.
-2. **Какие действия** - членство в группах + Policy Engine (default-deny).
-3. **На каких адресах** - роли `viewer` / `contributor` (гранты).
-4. **Что видно** - изоляция по умолчанию + `visibility-grants`.
-5. **Какие поля** - чувствительные значения редактируются по правам.
+1. **Who you are**: authentication.
+2. **Which actions**: group membership + Policy Engine (default-deny).
+3. **On which addresses**: `viewer` / `contributor` roles (grants).
+4. **What's visible**: isolation by default + `visibility-grants`.
+5. **Which fields**: sensitive values are redacted based on permissions.
 
-<Expandable title="Глоссарий" default-open="false">
-  - **default-deny** - без allow-политики действие запрещено.
-  - **членство в группах** - источник прав пользователя (объединение allow-политик).
-  - **viewer / contributor** - роли на адресах (просмотр / просмотр + переводы).
-  - **visibility-grants** - расширение изолированной видимости (`scope`: `self`/`group`/`vault`).
-  - **redactedFields** - список полей, чьи значения скрыты под доступ (приходят `null`).
-  - **надзорная роль** - администратор: видит весь Vault, не инициирует операции.
+<Expandable title="Glossary" default-open="false">
+  - **default-deny**: without an allow policy, an action is forbidden.
+  - **group membership**: the source of a user's permissions (the union of allow policies).
+  - **viewer / contributor**: address roles (view / view + transfers).
+  - **visibility-grants**: an expansion of isolated visibility (`scope`: `self`/`group`/`vault`).
+  - **redactedFields**: the list of fields whose values are hidden based on access (returned as `null`).
+  - **oversight role**: the administrator, who sees the entire Vault but doesn't initiate operations.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                          | Причина                                                       |
-| -------------------------------- | ------------------------------------------------------------- |
-| `403` у нового пользователя      | не добавлен ни в одну группу (default-deny)                   |
-| чужих данных нет даже в суммах   | это by design - права применяются до агрегации                |
-| `null` в поле принят за «пусто»  | это редакция: смотрите `redactedFields`, показывайте «скрыто» |
-| админ не может отправить перевод | админ - надзорная роль без собственных операций               |
-| `viewer` пытается перевести      | перевод требует роли `contributor`                            |
+| Symptom                                    | Cause                                                              |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `403` for a new user                       | the user hasn't been added to any group (default-deny)             |
+| other members' data is missing even in totals | this is by design: permissions are applied before aggregation   |
+| `null` in a field treated as "empty"       | it's redaction: check `redactedFields` and show "hidden"           |
+| an admin can't send a transfer             | the admin is an oversight role with no operations of their own     |
+| a `viewer` tries to make a transfer        | transfers require the `contributor` role                           |
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Аутентификация детально" href="/platform/authentication" icon="key-round" horizontal="false">
-    Кто вы: сессия, Bearer и cookie.
+  <Card title="Authentication in depth" href="/platform/authentication" icon="key-round" horizontal="false">
+    Who you are: sessions, Bearer, and cookies.
   </Card>
 
   <Card title="Policy Engine" href="/concepts/policy-engine" icon="shield-check" horizontal="false">
-    Что можно: политики, группы и default-deny.
+    What you can do: policies, groups, and default-deny.
   </Card>
 
-  <Card title="Выдать и отозвать доступ" href="/guides/share-access" icon="share-2" horizontal="false">
-    Роли на адресах и папках, аудит доступа.
+  <Card title="Share and revoke access" href="/guides/share-access" icon="share-2" horizontal="false">
+    Address and folder roles, access auditing.
   </Card>
 
-  <Card title="Контрагенты и контекст" href="/concepts/counterparties" icon="handshake" horizontal="false">
-    Контекст и видимость данных.
+  <Card title="Counterparties and context" href="/concepts/counterparties" icon="handshake" horizontal="false">
+    Context and data visibility.
   </Card>
 </Columns>
-

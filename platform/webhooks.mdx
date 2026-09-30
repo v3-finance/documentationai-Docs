@@ -1,25 +1,25 @@
 ---
-title: Вебхуки
+title: Webhooks
 description: >-
-  Входящий вебхук Wallet Service (TOPUP) - как приходят on-chain поступления,
-  тело события, подпись и обработка.
+  The incoming Wallet Service webhook (TOPUP): how on-chain deposits arrive, the
+  event body, signing, and processing.
 ---
-V3 Custody получает on-chain события о поступлениях от Wallet Service через вебхук. Вебхук вызывает **Wallet Service**, а не вы; со стороны интеграции вы потребляете результат (депозиты, лента, баланс). Прикладной сценарий - в гайде [Обработать входящее поступление](/guides/handle-deposit).
+V3 Custody receives on-chain deposit events from Wallet Service through a webhook. The webhook is called by **Wallet Service**, not by you; on the integration side, you consume the result (deposits, the activity feed, balances). For the end-to-end scenario, see the [Handle an incoming deposit](/guides/handle-deposit) guide.
 
-Как обрабатывается событие:
+How an event is processed:
 
 <MermaidDiagram chart={`
 flowchart TD
-WS["Wallet Service"] -->|POST /webhooks/wallet| EV["Событие TOPUP"]
-EV --> RT["Резолв токена по contract address"]
-RT --> KS{"Токен enabled?"}
-KS -->|нет| IGN["Игнор — депозит не зачисляется"]
-KS -->|да| CR["Зачисление + запись депозита"]
+WS["Wallet Service"] -->|POST /webhooks/wallet| EV["TOPUP event"]
+EV --> RT["Resolve token by contract address"]
+RT --> KS{"Token enabled?"}
+KS -->|no| IGN["Ignored — deposit not credited"]
+KS -->|yes| CR["Credit + deposit record"]
 `} />
 
-## Входящий вебхук Wallet Service
+## Incoming Wallet Service webhook
 
-`POST /webhooks/wallet` (вне префикса `/api/v1`) принимает входящие on-chain события; сейчас обрабатывается только `TOPUP`. Токен резолвится из реестра по contract address, сумма зачисляется на адрес-получатель, и создаётся запись депозита.
+`POST /webhooks/wallet` (outside the `/api/v1` prefix) accepts incoming on-chain events; currently only `TOPUP` is processed. The token is resolved from the registry by its contract address, the amount is credited to the recipient address, and a deposit record is created.
 
 ```json
 {
@@ -33,80 +33,79 @@ KS -->|да| CR["Зачисление + запись депозита"]
 }
 ```
 
-| Поле (`tx`) | Значение                |
-| ----------- | ----------------------- |
-| `network`   | сеть (`TRON`, …)        |
-| `asset`     | contract address токена |
-| `amount`    | сумма поступления       |
-| `toAddress` | адрес-получатель        |
-| `txHash`    | хеш транзакции          |
+| Field (`tx`) | Meaning                    |
+| ------------ | -------------------------- |
+| `network`    | network (`TRON`, …)        |
+| `asset`      | token contract address     |
+| `amount`     | deposit amount             |
+| `toAddress`  | recipient address          |
+| `txHash`     | transaction hash           |
 
 <Callout kind="info" collapsed="false">
-  `asset` - это contract address токена. Строгая схема тела не навязывается (внешний контракт, валидация внутри handler'а), поэтому поля приведены для примера - точный контракт смотрите в [Справочнике API](/api-reference).
+  `asset` is the token's contract address. No strict body schema is enforced (it's an external contract, validated inside the handler), so the fields above are for illustration only. See the [API Reference](/api-reference) for the exact contract.
 </Callout>
 
-## Подпись и безопасность
+## Signing and security
 
-- **В демо-режиме** вебхук принимается **без подписи и аутентификации**.
-- **В проде** планируется проверка **HMAC** - \[TODO: описать схему HMAC-подписи и заголовок, когда она появится].
+- **In demo mode**, the webhook is accepted **without a signature or authentication**.
+- **In production**, **HMAC** verification is planned. \[TODO: describe the HMAC signing scheme and header once it's available.]
 
-Пока подпись не введена, ограничивайте источник запросов на сетевом уровне (доверенный источник Wallet Service).
+Until signing is introduced, restrict the request source at the network level (the trusted Wallet Service source).
 
-## Отключённые токены
+## Disabled tokens
 
-Если токен отключён kill-switch'ом (`enabled=false`), вебхук **игнорирует** события по нему: депозит не зачисляется. Существующие данные и ledger-счета при этом не трогаются.
+If a token is disabled by the kill switch (`enabled=false`), the webhook **ignores** its events and the deposit isn't credited. Existing data and ledger accounts are left untouched.
 
-## Что читать после поступления
+## What to read after a deposit
 
-После зачисления читайте результат:
+Once the deposit is credited, read the result:
 
-| Что нужно        | Запрос                                           |
-| ---------------- | ------------------------------------------------ |
-| детали депозита  | `GET /api/v1/vaults/{code}/deposits/{id}`        |
-| входящие в ленте | `GET /api/v1/vaults/{code}/history?direction=in` |
-| баланс           | `GET /api/v1/vaults/{code}/balances`             |
+| What you need         | Request                                          |
+| --------------------- | ------------------------------------------------ |
+| deposit details       | `GET /api/v1/vaults/{code}/deposits/{id}`        |
+| incoming in the feed  | `GET /api/v1/vaults/{code}/history?direction=in` |
+| balance               | `GET /api/v1/vaults/{code}/balances`             |
 
-Подробный флоу - в гайде [Обработать входящее поступление](/guides/handle-deposit).
+For the full flow, see the [Handle an incoming deposit](/guides/handle-deposit) guide.
 
-## Исходящие вебхуки
+## Outgoing webhooks
 
-В текущем API есть только **входящий** вебхук Wallet Service. Исходящих вебхуков (например, уведомлений о низком балансе Gas Station) в API пока нет - \[TODO: описать исходящие вебхуки, когда они появятся].
+The current API has only the **incoming** Wallet Service webhook. Outgoing webhooks (for example, low Gas Station balance notifications) aren't available in the API yet. \[TODO: describe outgoing webhooks once they're available.]
 
-<Expandable title="Глоссарий" default-open="false">
-  - **Wallet Service** - внешний сервис, следит за адресами и вызывает вебхук.
-  - **TOPUP** - тип события входящего поступления (единственный обрабатываемый).
-  - **contract address** - ончейн-адрес контракта токена; по нему резолвится токен.
-  - **kill-switch (****`enabled=false`****)** - отключение токена; события по нему игнорируются.
-  - **HMAC** - планируемая подпись вебхука в проде.
+<Expandable title="Glossary" default-open="false">
+  - **Wallet Service**: an external service that monitors addresses and calls the webhook.
+  - **TOPUP**: the incoming deposit event type (the only one processed).
+  - **contract address**: the on-chain address of a token's contract, used to resolve the token.
+  - **kill switch** (`enabled=false`): disables a token; its events are ignored.
+  - **HMAC**: the planned webhook signature for production.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                      | Причина                                                               |
-| ---------------------------- | --------------------------------------------------------------------- |
-| вебхук шлут на `/api/v1/...` | он вне префикса - на `/webhooks/wallet`                               |
-| депозит не зачислен          | токен отключён kill-switch'ом (`enabled=false`) или его нет в реестре |
-| ждёте исходящий вебхук       | их пока нет - только входящий `TOPUP`                                 |
-| в проде запрос отклонён      | планируется HMAC - пока ограничивайте источник на сетевом уровне      |
-| обрабатываете не-`TOPUP`     | сейчас поддержан только `TOPUP`                                       |
+| Symptom                                | Cause                                                                                   |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
+| webhook sent to `/api/v1/...`          | it's outside the prefix, at `/webhooks/wallet`                                          |
+| deposit not credited                   | the token is disabled by the kill switch (`enabled=false`) or isn't in the registry     |
+| waiting for an outgoing webhook        | there aren't any yet, only the incoming `TOPUP`                                         |
+| request rejected in production         | HMAC is planned; for now, restrict the source at the network level                     |
+| handling events other than `TOPUP`     | only `TOPUP` is currently supported                                                     |
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Обработать поступление" href="/guides/handle-deposit" icon="arrow-down-to-line" horizontal="false">
-    Полный флоу от вебхука до депозита.
+  <Card title="Handle a deposit" href="/guides/handle-deposit" icon="arrow-down-to-line" horizontal="false">
+    The full flow from webhook to deposit.
   </Card>
 
-  <Card title="Окружения и базовые URL" href="/platform/environments" icon="server" horizontal="false">
-    Путь вебхука вне /api/v1.
+  <Card title="Environments and base URLs" href="/platform/environments" icon="server" horizontal="false">
+    The webhook path outside /api/v1.
   </Card>
 
-  <Card title="Активы и сети" href="/platform/assets-networks" icon="coins" horizontal="false">
-    Реестр токенов и kill-switch.
+  <Card title="Assets and networks" href="/platform/assets-networks" icon="coins" horizontal="false">
+    The token registry and kill switch.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Контракт вебхука Wallet Service.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    The Wallet Service webhook contract.
   </Card>
 </Columns>
-

@@ -1,24 +1,24 @@
 ---
-title: Быстрый старт
+title: Quickstart
 description: >-
-  Первые вызовы к API V3 Custody - найти Vault, проверить баланс и отправить
-  перевод через Policy Engine.
+  Your first calls to the V3 Custody API: find your Vault, check a balance, and
+  send a transfer through the Policy Engine.
 ---
-За несколько минут вы сделаете первые вызовы к REST API V3 Custody: найдёте свой Vault, проверите баланс, создадите адрес и отправите перевод. Все операции идут через один HTTP‑эндпоинт и подчиняются тем же правилам, что и веб‑консоль.
+In a few minutes you'll make your first calls to the V3 Custody REST API: find your Vault, check a balance, create an address, and send a transfer. All operations go through a single HTTP endpoint and follow the same rules as the web console.
 
 <Callout kind="info" collapsed="false">
-  Примеры используют базовый URL `[BASE_URL]` - это адрес вашего self‑hosted инстанса.
+  The examples use the base URL `[BASE_URL]`, which is the address of your self‑hosted instance.
 </Callout>
 
-## Что понадобится
+## Prerequisites
 
-- Адрес инстанса V3 Custody - в примерах `[BASE_URL]`.
-- Токен доступа для заголовка `Authorization`. Как его получить - на странице [Аутентификация](/authentication).
-- Любой HTTP‑клиент: `curl`, JavaScript или Python.
+- The address of your V3 Custody instance, shown as `[BASE_URL]` in the examples.
+- An access token for the `Authorization` header. See [Authentication](/authentication) for how to get one.
+- Any HTTP client: `curl`, JavaScript, or Python.
 
-## Настройте окружение
+## Set up your environment
 
-Сложите базовый URL и токен в переменные окружения, чтобы не повторять их в каждом запросе.
+Store the base URL and token in environment variables so you don't have to repeat them in every request.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -50,12 +50,12 @@ description: >-
 </CodeGroup>
 
 <Callout kind="alert" collapsed="false">
-  Не коммитьте токен в репозиторий и не подставляйте его в код напрямую — держите в переменных окружения или менеджере секретов.
+  Never commit your token to a repository or hardcode it. Keep it in environment variables or a secrets manager.
 </Callout>
 
-## Шаг 1. Найдите свой Vault
+## Step 1. Find your Vault
 
-Vault - это дерево адресов вашей организации. Почти все маршруты начинаются с его кода (`code`, slug). Получите список доступных Vault'ов:
+A Vault is your organization's address tree. Almost every route starts with its code (`code`, a slug). Get the list of Vaults available to you:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -87,11 +87,11 @@ Vault - это дерево адресов вашей организации. П
 ]
 ```
 
-Запомните `code` - дальше он подставляется во все запросы как `{code}`.
+Note the `code`: from here on, it goes into every request as `{code}`.
 
-## Шаг 2. Проверьте баланс
+## Step 2. Check your balance
 
-Баланс в V3 Custody не хранится отдельным числом, а вычисляется из проводок журнала. Он делится на **available** (можно тратить) и **reserved** (заблокировано под ожидающими переводами, но всё ещё ваше).
+In V3 Custody, a balance isn't stored as a separate number. It's computed from ledger entries and split into **available** (can be spent) and **reserved** (locked by pending transfers, but still yours).
 
 <CodeGroup show-lines="true">
   ```bash
@@ -127,24 +127,24 @@ Vault - это дерево адресов вашей организации. П
 ```
 
 <ParamField query="summary" param-type="string" required="false" deprecated="false" show-location="true" enum="true,false">
-  `true` - вернуть только агрегаты по токенам, без списка счетов.
+  `true` returns only per-token totals, without the list of accounts.
 </ParamField>
 
 <ParamField query="addressId" param-type="string" required="false" deprecated="false" show-location="true">
-  Баланс конкретного адреса.
+  Balance of a specific address.
 </ParamField>
 
 <ParamField query="token" param-type="string" required="false" deprecated="false" show-location="true">
-  Ограничить одним токеном (например, `usdt`).
+  Limit the result to a single token (for example, `usdt`).
 </ParamField>
 
 <Callout kind="tip" collapsed="false">
-  Нужен баланс на дату в прошлом? Есть отдельный эндпоинт `GET /api/v1/vaults/{code}/balances/as-of?at=...`, который восстанавливает позицию из проводок, зафиксированных до выбранного момента.
+  Need a balance as of a past date? The separate endpoint `GET /api/v1/vaults/{code}/balances/as-of?at=...` reconstructs the position from entries recorded before the chosen point in time.
 </Callout>
 
-## Шаг 3. Создайте адрес (опционально)
+## Step 3. Create an address (optional)
 
-Новый адрес готов к работе с первой секунды - активация и предварительное пополнение не нужны, комиссию берёт на себя Gas Station. Адрес задаётся сетью и набором статических сегментов деривации.
+A new address is ready to use from the first second. No activation or prefunding is needed, since Gas Station covers the fees. An address is defined by a network and a set of static derivation segments.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -191,11 +191,11 @@ Vault - это дерево адресов вашей организации. П
 }
 ```
 
-## Шаг 4. Отправьте перевод
+## Step 4. Send a transfer
 
-Перевод не уходит в сеть сразу. Сначала сумма резервируется, затем запрос проходит через Policy Engine, который возвращает один из исходов - **allow**, **queue** (нужно подтверждение) или **block**. Только после этого MPC‑ноды подписывают транзакцию.
+A transfer isn't broadcast to the network right away. First the amount is reserved, then the request goes through the Policy Engine, which returns one of three outcomes: **allow**, **queue** (approval required), or **block**. Only after that do the MPC nodes sign the transaction.
 
-Передайте уникальный `idempotencyKey`: повтор запроса с тем же ключом вернёт уже созданный перевод и не задвоит платёж.
+Pass a unique `idempotencyKey`: retrying the request with the same key returns the transfer that was already created and never duplicates the payment.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -243,28 +243,27 @@ Vault - это дерево адресов вашей организации. П
 </CodeGroup>
 
 <Callout kind="alert" collapsed="false">
-  Набор полей тела запроса приведён для примера. Точный и всегда актуальный список параметров и форматов - в [Справочнике API](/api-reference) на странице создания перевода.
+  The request body fields shown here are for illustration only. For the exact, up-to-date list of parameters and formats, see the create transfer page in the [API Reference](/api-reference).
 </Callout>
 
-Если Policy Engine вернул **queue**, перевод ждёт подтверждения — заявку и её статус видно через `GET /api/v1/vaults/{code}/approval-requests`. Пока заявка ждёт, сумма остаётся в **reserved**; при отклонении она возвращается в **available**.
+If the Policy Engine returns **queue**, the transfer waits for approval. You can see the approval request and its status via `GET /api/v1/vaults/{code}/approval-requests`. While the request is pending, the amount stays **reserved**; if it's rejected, the amount returns to **available**.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Аутентификация" href="/authentication" icon="key" horizontal="false">
-    Bearer‑токены, cookie‑сессии и доступ по приглашению.
+  <Card title="Authentication" href="/authentication" icon="key" horizontal="false">
+    Bearer tokens, cookie sessions, and invite-based access.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Все эндпоинты, параметры и форматы ответов.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    All endpoints, parameters, and response formats.
   </Card>
 
-  <Card title="Введение" href="/introduction" icon="book-open" horizontal="false">
-    Как устроены доли ключа, политики и журнал двойной записи.
+  <Card title="Introduction" href="/introduction" icon="book-open" horizontal="false">
+    How key shares, policies, and the double-entry ledger work.
   </Card>
 
-  <Card title="Ошибки" href="/errors" icon="alert-circle" horizontal="false">
-    Коды ошибок и что делать с каждой из них.
+  <Card title="Errors" href="/errors" icon="alert-circle" horizontal="false">
+    Error codes and how to handle each one.
   </Card>
 </Columns>
-

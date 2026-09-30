@@ -1,35 +1,35 @@
 ---
-title: Отправить перевод
+title: Send a transfer
 description: >-
-  Создать исходящий перевод с идемпотентностью, разобраться в состояниях
-  (резерв, awaiting_approval, confirmed) и отменить зависшую заявку.
+  Create an outgoing transfer with idempotency, understand its states
+  (reserve, awaiting_approval, confirmed), and cancel a stuck request.
 ---
-Перевод не уходит в сеть сразу: сумма сначала резервируется, затем Policy Engine решает `allow` / `queue` / `block`, и только потом MPC-ноды подписывают транзакцию. Здесь - как отправить перевод, что происходит с его состоянием и как отменить зависшую заявку. Механику резерва см. в [Журнале](/concepts/ledger), решения - в [Policy Engine](/concepts/policy-engine).
+A transfer isn't broadcast to the network right away: the amount is reserved first, then the Policy Engine decides `allow` / `queue` / `block`, and only after that do the MPC nodes sign the transaction. This guide shows how to send a transfer, what happens to its state, and how to cancel a stuck request. For how the reserve works, see [Ledger](/concepts/ledger); for decisions, see [Policy Engine](/concepts/policy-engine).
 
-Полный путь перевода, от создания до исполнения или возврата:
+The full path of a transfer, from creation to execution or return:
 
 <MermaidDiagram chart={`
 flowchart TD
-C["Создан перевод → reserved"] --> D{"Policy Engine"}
-D -->|allow| CONF["confirmed (списано)"]
-D -->|block| B["403 (не создан)"]
+C["Transfer created → reserved"] --> D{"Policy Engine"}
+D -->|allow| CONF["confirmed (debited)"]
+D -->|block| B["403 (not created)"]
 D -->|queue| AW["awaiting_approval"]
-AW -->|порог approve| CONF
-AW -->|reject / cancel| RET["возврат в available"]
+AW -->|approval threshold| CONF
+AW -->|reject / cancel| RET["returned to available"]
 `} />
 
-## Что понадобится
+## Prerequisites
 
-- Vault и адрес с балансом (`fromAddressId`) - см. гайды [Создать Vault](/guides/create-vault) и [Сгенерировать адреса](/guides/generate-addresses).
-- Токен доступа (см. [Аутентификацию](/authentication)).
-- Любой HTTP‑клиент.
+- A Vault and an address with a balance (`fromAddressId`). See the [Create a Vault](/guides/create-vault) and [Generate addresses](/guides/generate-addresses) guides.
+- An access token (see [Authentication](/authentication)).
+- Any HTTP client.
 
-## Шаг 1. Отправьте перевод
+## Step 1. Send the transfer
 
-`POST /api/v1/vaults/{code}/transfers` создаёт исходящий перевод. Всегда передавайте `idempotencyKey`, повтор с тем же ключом вернёт уже созданный перевод, а не задвоит платёж.
+`POST /api/v1/vaults/{code}/transfers` creates an outgoing transfer. Always pass an `idempotencyKey`: retrying with the same key returns the transfer that was already created instead of duplicating the payment.
 
 <Callout kind="tip" collapsed="false">
-  Перед созданием можно спросить Policy Engine, пройдёт ли перевод, - вызовом `evaluate` (`allow`/`queue`/`block` без побочных эффектов). См. [Пред-проверить перевод](/guides/evaluate-transfer).
+  Before creating a transfer, you can ask the Policy Engine whether it will go through by calling `evaluate` (`allow`/`queue`/`block` with no side effects). See [Evaluate a transfer](/guides/evaluate-transfer).
 </Callout>
 
 <CodeGroup show-lines="true">
@@ -80,7 +80,7 @@ AW -->|reject / cancel| RET["возврат в available"]
   ```
 </CodeGroup>
 
-Под капотом платформа резолвит адрес и токен, конвертирует сумму по `decimals`, проверяет баланс и прогоняет запрос через Policy Engine (`action=transfer`). При запрете вернётся `403`, при нехватке средств - ошибка `INSUFFICIENT_BALANCE`.
+Under the hood, the platform resolves the address and token, converts the amount using `decimals`, checks the balance, and runs the request through the Policy Engine (`action=transfer`). If the transfer is forbidden, you get `403`; if funds are insufficient, you get an `INSUFFICIENT_BALANCE` error.
 
 ```json
 {
@@ -92,25 +92,25 @@ AW -->|reject / cancel| RET["возврат в available"]
 }
 ```
 
-Сумма возвращается в двух видах: `amount` - в минимальных единицах (raw), `amountDecimal` - в человеческом формате.
+The amount is returned in two forms: `amount` in the smallest units (raw) and `amountDecimal` in human-readable format.
 
 <Callout kind="alert" collapsed="false">
-  Набор полей тела приведён для примера. Точную схему запроса сверьте со [Справочником API](/api-reference) на странице создания перевода.
+  The request body fields shown here are for illustration only. Check the exact request schema on the create transfer page in the [API Reference](/api-reference).
 </Callout>
 
-## Шаг 2. Три состояния перевода
+## Step 2. The three transfer states
 
-Исход зависит от Policy Engine:
+The outcome depends on the Policy Engine:
 
-| Исход   | Статус перевода                    | Резерв                |
-| ------- | ---------------------------------- | --------------------- |
-| `allow` | исполняется (в демо → `confirmed`) | списывается           |
-| `queue` | `awaiting_approval`                | держится в `reserved` |
-| `block` | не создаётся (`403`)               | не резервируется      |
+| Outcome | Transfer status                       | Reserve                  |
+| ------- | ------------------------------------- | ------------------------ |
+| `allow` | executed (in demo → `confirmed`)      | debited                  |
+| `queue` | `awaiting_approval`                   | held in `reserved`       |
+| `block` | not created (`403`)                   | not reserved             |
 
-При отклонении или отмене зарезервированная сумма возвращается в `available`.
+If the transfer is rejected or cancelled, the reserved amount returns to `available`.
 
-## Шаг 3. Проверьте статус
+## Step 3. Check the status
 
 <CodeGroup show-lines="true">
   ```bash
@@ -133,11 +133,11 @@ AW -->|reject / cancel| RET["возврат в available"]
   ```
 </CodeGroup>
 
-`GET /api/v1/vaults/{code}/transfers/{id}` возвращает статус, суммы (raw и decimal) и - для переводов, требующих одобрения, - снапшот одобряющих с их голосами.
+`GET /api/v1/vaults/{code}/transfers/{id}` returns the status, the amounts (raw and decimal), and, for transfers that require approval, a snapshot of the approvers and their votes.
 
-## Шаг 4. Подтвердите (если перевод в очереди)
+## Step 4. Approve (if the transfer is queued)
 
-Если перевод в статусе `awaiting_approval`, члены approver-группы голосуют:
+If the transfer is in `awaiting_approval`, members of the approver group vote:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -167,19 +167,19 @@ AW -->|reject / cancel| RET["возврат в available"]
   ```
 </CodeGroup>
 
-- `approve` добирает порог - перевод исполняется.
-- `reject` - вето: перевод сразу `rejected`, средства возвращаются.
-- Инициатор не голосует за свой перевод; у каждого - один голос.
+- `approve` counts toward the threshold; once it's reached, the transfer is executed.
+- `reject` is a veto: the transfer immediately becomes `rejected`, and the funds are returned.
+- The initiator can't vote on their own transfer; everyone gets one vote.
 
-Подробнее о заявках - на странице [Аппрувалы](/concepts/approvals).
+For more on approval requests, see [Approvals](/concepts/approvals).
 
 <Callout kind="alert" collapsed="false">
-  Точное имя поля голоса (здесь это `decision`) сверьте со [Справочником API](/api-reference) на странице голосования по переводу.
+  Check the exact name of the vote field (`decision` here) on the transfer voting page in the [API Reference](/api-reference).
 </Callout>
 
-## Шаг 5. Отмените зависший перевод
+## Step 5. Cancel a stuck transfer
 
-Если одобряющие бездействуют, инициатор может отозвать перевод, пока тот ждёт одобрения:
+If approvers don't act, the initiator can withdraw the transfer while it's awaiting approval:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -202,41 +202,40 @@ AW -->|reject / cancel| RET["возврат в available"]
   ```
 </CodeGroup>
 
-`cancel` переводит заявку в `rejected` и возвращает зарезервированные средства. После одобрения или исполнения отменить нельзя.
+`cancel` moves the request to `rejected` and returns the reserved funds. A transfer can't be cancelled once it's been approved or executed.
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                 | Причина                                                      |
-| ----------------------- | ------------------------------------------------------------ |
-| `403` при создании      | перевод заблокирован политикой - смотрите `reason` / `trace` |
-| `INSUFFICIENT_BALANCE`  | не хватает `available` на адресе                             |
-| токен не резолвится     | токен не совпадает с сетью адреса                            |
-| `cancel` не срабатывает | перевод уже одобрен или исполнен - отменить нельзя           |
-| платёж задвоился        | не передан стабильный `idempotencyKey`                       |
+| Symptom                    | Cause                                                              |
+| -------------------------- | ------------------------------------------------------------------ |
+| `403` on creation          | the transfer was blocked by a policy; check `reason` / `trace`     |
+| `INSUFFICIENT_BALANCE`     | not enough `available` balance on the address                      |
+| token doesn't resolve      | the token doesn't match the address's network                      |
+| `cancel` doesn't work      | the transfer has already been approved or executed and can't be cancelled |
+| payment was duplicated     | no stable `idempotencyKey` was passed                              |
 
-## Готово, если
+## You're done when
 
-- при `allow` перевод `confirmed` (в демо);
-- при `queue` создана заявка `awaiting_approval`, сумма в `reserved`;
-- статус читается через `GET /api/v1/vaults/{code}/transfers/{id}`.
+- with `allow`, the transfer is `confirmed` (in demo);
+- with `queue`, an `awaiting_approval` request is created and the amount is in `reserved`;
+- you can read the status via `GET /api/v1/vaults/{code}/transfers/{id}`.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Пред-проверить перевод" href="/guides/evaluate-transfer" icon="search-check" horizontal="false">
-    `evaluate` до создания перевода.
+  <Card title="Evaluate a transfer" href="/guides/evaluate-transfer" icon="search-check" horizontal="false">
+    `evaluate` before creating a transfer.
   </Card>
 
-  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
-    Голосование, снапшот подписантов и veto.
+  <Card title="Approvals" href="/concepts/approvals" icon="check-check" horizontal="false">
+    Voting, the approver snapshot, and veto.
   </Card>
 
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Резерв, состояния баланса и идемпотентность.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    The reserve, balance states, and idempotency.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Схема перевода, голосования и отмены.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Transfer, voting, and cancellation schemas.
   </Card>
 </Columns>
-

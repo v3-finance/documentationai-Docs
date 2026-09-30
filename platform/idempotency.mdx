@@ -1,26 +1,26 @@
 ---
-title: Идемпотентность
+title: Idempotency
 description: >-
-  Как безопасно повторять запросы - idempotencyKey на переводах и другие
-  механизмы защиты от дублей.
+  How to retry requests safely: idempotencyKey on transfers and other
+  duplicate-protection mechanisms.
 ---
-Сетевые сбои делают ретраи неизбежными. V3 Custody защищает от случайных дублей - прежде всего, у перевода есть `idempotencyKey`, поэтому повтор запроса не задвоит платёж.
+Network failures make retries unavoidable. V3 Custody protects you from accidental duplicates. First and foremost, transfers accept an `idempotencyKey`, so retrying a request never duplicates a payment.
 
 <MermaidDiagram chart={`
 flowchart TD
-REQ["POST /transfers (idempotencyKey=K)"] --> CHK{"Ключ K уже есть?"}
-CHK -->|нет| NEW["Создать перевод + broadcast"]
-NEW --> SAVE["Сохранить K вместе с переводом"]
-CHK -->|да| REPLAY["Вернуть существующую операцию (replay, без повторного broadcast)"]
+REQ["POST /transfers (idempotencyKey=K)"] --> CHK{"Key K already exists?"}
+CHK -->|no| NEW["Create transfer + broadcast"]
+NEW --> SAVE["Store K with the transfer"]
+CHK -->|yes| REPLAY["Return the existing operation (replay, no second broadcast)"]
 `} />
 
-## idempotencyKey на переводах
+## idempotencyKey on transfers
 
-`POST /api/v1/vaults/{code}/transfers` принимает `idempotencyKey`. Повтор запроса с **тем же** ключом вернёт уже созданный перевод, а broadcast не повторяется — в ответе приходит существующая операция (replay).
+`POST /api/v1/vaults/{code}/transfers` accepts an `idempotencyKey`. Retrying the request with the **same** key returns the transfer that was already created and doesn't repeat the broadcast: the response contains the existing operation (replay).
 
 <CodeGroup show-lines="true">
   ```bash
-  # первый запрос создаёт перевод; повтор с тем же ключом вернёт его же
+  # the first request creates the transfer; a retry with the same key returns the same one
   curl -X POST "[BASE_URL]/api/v1/vaults/acme-otc/transfers" \
     -H "Authorization: Bearer $V3_TOKEN" \
     -H "Content-Type: application/json" \
@@ -42,7 +42,7 @@ CHK -->|да| REPLAY["Вернуть существующую операцию (
     idempotencyKey: "payout-2026-03-14-001",
   };
 
-  // безопасно повторять этот запрос: тот же ключ → тот же перевод
+  // safe to retry: same key → same transfer
   await fetch("[BASE_URL]/api/v1/vaults/acme-otc/transfers", {
     method: "POST",
     headers: {
@@ -62,7 +62,7 @@ CHK -->|да| REPLAY["Вернуть существующую операцию (
       "idempotencyKey": "payout-2026-03-14-001",
   }
 
-  # безопасно повторять: тот же ключ → тот же перевод
+  # safe to retry: same key → same transfer
   requests.post(
       "[BASE_URL]/api/v1/vaults/acme-otc/transfers",
       headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
@@ -71,62 +71,61 @@ CHK -->|да| REPLAY["Вернуть существующую операцию (
   ```
 </CodeGroup>
 
-Ключ сохраняется вместе с созданным переводом: второй запрос с тем же ключом коротко замыкается на существующую операцию, а не создаёт и не отправляет её повторно.
+The key is stored together with the created transfer: a second request with the same key short-circuits to the existing operation instead of creating and broadcasting it again.
 
-## Рекомендации
+## Recommendations
 
-- **Всегда** передавайте `idempotencyKey` на переводах.
-- Делайте ключ стабильным идентификатором бизнес-операции (id инвойса, выплаты), а не случайным на каждый ретрай, - иначе повтор создаст новый платёж.
-- Один ключ = один платёж; для нового платежа - новый ключ.
+- **Always** pass an `idempotencyKey` on transfers.
+- Make the key a stable identifier of the business operation (an invoice or payout ID), not a random value generated on each retry. Otherwise, a retry creates a new payment.
+- One key = one payment; a new payment needs a new key.
 
-## Другие механизмы безопасного повтора
+## Other safe-retry mechanisms
 
-`idempotencyKey` - про переводы. У других изменяющих операций своя защита от дублей и гонок:
+`idempotencyKey` applies to transfers. Other write operations have their own protection against duplicates and race conditions:
 
-| Операция                        | Механизм                    | Поведение при повторе/гонке              |
-| ------------------------------- | --------------------------- | ---------------------------------------- |
-| перевод (`POST /transfers`)     | `idempotencyKey`            | тот же ключ → та же операция (replay)    |
-| грант на адрес (`POST /shares`) | идемпотентность по субъекту | обновляет/реактивирует, не плодит дубли  |
-| финальное подтверждение заявки  | optimistic-lock             | цель изменилась → `REJECTED` (stale)     |
-| создание адреса                 | повтор подбора `pathIndex`  | параллельные запросы не займут один путь |
+| Operation                           | Mechanism                  | Behavior on retry or race                    |
+| ----------------------------------- | -------------------------- | -------------------------------------------- |
+| transfer (`POST /transfers`)        | `idempotencyKey`           | same key → same operation (replay)           |
+| address grant (`POST /shares`)      | idempotent per subject     | updates or reactivates, never duplicates     |
+| final approval of a request         | optimistic lock            | target changed → `REJECTED` (stale)          |
+| address creation                    | `pathIndex` selection retry | concurrent requests can't claim the same path |
 
-Про optimistic-lock заявки подробнее - на странице [Аппрувалы](/concepts/approvals).
+For details on the approval request optimistic lock, see [Approvals](/concepts/approvals).
 
-<Expandable title="Глоссарий" default-open="false">
-  - **idempotencyKey** - ключ, по которому повтор запроса возвращает ту же операцию.
-  - **replay** - возврат уже созданной операции без повторного broadcast.
-  - **broadcast** - отправка транзакции в сеть.
-  - **optimistic-lock** - проверка неизменности цели перед применением; при изменении — отказ (stale).
-  - **pathIndex** - индекс пути деривации адреса.
+<Expandable title="Glossary" default-open="false">
+  - **idempotencyKey**: a key that makes a retried request return the same operation.
+  - **replay**: returning an already created operation without broadcasting it again.
+  - **broadcast**: sending a transaction to the network.
+  - **optimistic lock**: a check that the target hasn't changed before applying a change; if it has, the change is rejected (stale).
+  - **pathIndex**: the index of an address's derivation path.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                      | Причина                                                              |
-| ---------------------------- | -------------------------------------------------------------------- |
-| повтор задвоил платёж        | ключ был случайным на каждый ретрай, а не стабильным                 |
-| «тот же ключ, другой платёж» | ключ переиспользован для новой операции - один ключ = один платёж    |
-| ретрай без ключа задвоился   | `idempotencyKey` не передан                                          |
-| заявка `REJECTED` (stale)    | цель изменилась после создания - это optimistic-lock, а не сбой сети |
-| грант «создался дважды»      | нет: `POST /shares` идемпотентен, второй вызов обновил тот же грант  |
+| Symptom                                | Cause                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------- |
+| a retry duplicated the payment         | the key was random on each retry instead of stable                                    |
+| "same key, different payment"          | the key was reused for a new operation; one key = one payment                         |
+| a retry without a key was duplicated   | `idempotencyKey` wasn't passed                                                        |
+| request `REJECTED` (stale)             | the target changed after the request was created; this is the optimistic lock, not a network failure |
+| grant "created twice"                  | it wasn't: `POST /shares` is idempotent, so the second call updated the same grant    |
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
-    idempotencyKey и состояния перевода на практике.
+  <Card title="Send a transfer" href="/guides/send-transfer" icon="send" horizontal="false">
+    idempotencyKey and transfer states in practice.
   </Card>
 
-  <Card title="Аппрувалы" href="/concepts/approvals" icon="check-check" horizontal="false">
-    optimistic-lock и stale-отказ заявки.
+  <Card title="Approvals" href="/concepts/approvals" icon="check-check" horizontal="false">
+    The optimistic lock and stale rejection of approval requests.
   </Card>
 
-  <Card title="Модель ошибок" href="/platform/errors" icon="alert-circle" horizontal="false">
-    Коды ответов при повторах и конфликтах.
+  <Card title="Error model" href="/platform/errors" icon="alert-circle" horizontal="false">
+    Response codes for retries and conflicts.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Поле idempotencyKey на странице перевода.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    The idempotencyKey field on the transfer page.
   </Card>
 </Columns>
-

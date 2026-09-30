@@ -1,39 +1,39 @@
 ---
-title: Обработать входящее поступление
+title: Handle an incoming deposit
 description: >-
-  Как приходящий платёж превращается в депозит - вебхук Wallet Service (TOPUP),
-  зачисление в журнал и чтение поступления.
+  How an incoming payment becomes a deposit: the Wallet Service webhook
+  (TOPUP), crediting the ledger, and reading the deposit.
 ---
-Входящие средства приходят ончейн, а Wallet Service следит за адресами и уведомляет V3 Custody вебхуком. Платформа зачисляет сумму в журнал и создаёт депозит. Здесь - как устроен контракт вебхука и как прочитать результат. Механику зачисления см. в [Журнале](/concepts/ledger).
+Incoming funds arrive on-chain, and Wallet Service monitors your addresses and notifies V3 Custody through a webhook. The platform credits the amount to the ledger and creates a deposit. This guide explains the webhook contract and how to read the result. For how crediting works, see [Ledger](/concepts/ledger).
 
 <Callout kind="info" collapsed="false">
-  Вебхук вызывает **Wallet Service**, а не вы. Со стороны интеграции вы обычно потребляете результат - депозиты, ленту и баланс.
+  The webhook is called by **Wallet Service**, not by you. On the integration side, you usually consume the result: deposits, the feed, and balances.
 </Callout>
 
-Путь поступления - от ончейн-платежа до записи в ленте и балансе:
+The path of a deposit, from an on-chain payment to an entry in the feed and balance:
 
 <MermaidDiagram chart={`
 flowchart TD
-ON["Ончейн-платёж на ваш адрес"] --> WS["Wallet Service следит за адресом"]
+ON["On-chain payment to your address"] --> WS["Wallet Service monitors the address"]
 WS --> WH["POST /webhooks/wallet (TOPUP)"]
-WH --> RT["Резолв токена по contract address"]
-RT --> CR["Зачисление в журнал"]
-CR --> DEP["Депозит создан"]
-DEP --> HIST["Лента (direction=in) + available"]
-DEP --> CP["Автосопоставление контрагенту"]
+WH --> RT["Resolve token by contract address"]
+RT --> CR["Credit to the ledger"]
+CR --> DEP["Deposit created"]
+DEP --> HIST["Feed (direction=in) + available"]
+DEP --> CP["Auto-match to counterparty"]
 `} />
 
-## Что понадобится
+## Prerequisites
 
-- Отслеживаемый адрес в Vault'е - см. [Сгенерировать адреса](/guides/generate-addresses).
-- Токен доступа для чтения (см. [Аутентификацию](/authentication)).
-- `code` Vault'а или id депозита для чтения результата.
+- A monitored address in the Vault. See [Generate addresses](/guides/generate-addresses).
+- An access token for reading (see [Authentication](/authentication)).
+- The Vault's `code` or a deposit id to read the result.
 
-## Шаг 1. Как приходит поступление
+## Step 1. How a deposit arrives
 
-`POST /webhooks/wallet` принимает входящие on-chain события; сейчас обрабатывается только `TOPUP`. Токен резолвится из реестра по contract address, сумма зачисляется на адрес-получатель, и создаётся запись депозита.
+`POST /webhooks/wallet` accepts incoming on-chain events; currently only `TOPUP` is processed. The token is resolved from the registry by its contract address, the amount is credited to the recipient address, and a deposit record is created.
 
-Пример тела события:
+Example event body:
 
 ```json
 {
@@ -47,15 +47,15 @@ DEP --> CP["Автосопоставление контрагенту"]
 }
 ```
 
-`asset` - это contract address токена; по нему платформа находит токен в реестре.
+`asset` is the token's contract address; the platform uses it to find the token in the registry.
 
 <Callout kind="alert" collapsed="false">
-  В демо-режиме вебхук без аутентификации и подписи (в проде планируется HMAC), а строгая схема тела не навязывается (внешний контракт, валидация внутри handler'а). Поля выше приведены для примера - точный контракт сверьте со [Справочником API](/api-reference).
+  In demo mode, the webhook has no authentication or signature (HMAC is planned for production), and no strict body schema is enforced (it's an external contract, validated inside the handler). The fields above are for illustration only. Check the exact contract in the [API Reference](/api-reference).
 </Callout>
 
-## Шаг 2. Прочитайте поступление
+## Step 2. Read the deposit
 
-Когда депозит создан, его детали доступны по id:
+Once the deposit is created, its details are available by id:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -88,17 +88,17 @@ DEP --> CP["Автосопоставление контрагенту"]
 }
 ```
 
-| Поле                       | Что означает                               |
-| -------------------------- | ------------------------------------------ |
-| `id`                       | id депозита                                |
-| `amountDecimal`            | сумма в человеческом формате               |
-| `token`                    | символ токена                              |
-| `toAddress`                | адрес-получатель                           |
-| `amlStatus` / `amlDetails` | placeholder до появления automation engine |
+| Field                      | Meaning                                                |
+| -------------------------- | ------------------------------------------------------ |
+| `id`                       | deposit id                                             |
+| `amountDecimal`            | amount in human-readable format                        |
+| `token`                    | token symbol                                           |
+| `toAddress`                | recipient address                                      |
+| `amlStatus` / `amlDetails` | placeholders until the automation engine is available  |
 
-## Шаг 3. Найдите поступления в ленте
+## Step 3. Find deposits in the feed
 
-Поступления попадают в вашу ленту активности и отражаются в балансе:
+Deposits show up in your activity feed and are reflected in your balance:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -123,58 +123,57 @@ DEP --> CP["Автосопоставление контрагенту"]
   ```
 </CodeGroup>
 
-Куда смотреть после зачисления:
+Where to look after crediting:
 
-| Что нужно          | Запрос                                                   |
-| ------------------ | -------------------------------------------------------- |
-| детали депозита    | `GET /api/v1/vaults/{code}/deposits/{id}`                |
-| входящие в ленте   | `GET /api/v1/vaults/{code}/history?direction=in`         |
-| обновлённый баланс | `GET /api/v1/vaults/{code}/balances` (вырос `available`) |
+| What you need        | Request                                                            |
+| -------------------- | ------------------------------------------------------------------ |
+| deposit details      | `GET /api/v1/vaults/{code}/deposits/{id}`                          |
+| incoming in the feed | `GET /api/v1/vaults/{code}/history?direction=in`                   |
+| updated balance      | `GET /api/v1/vaults/{code}/balances` (`available` has increased)   |
 
-Поступление также автоматически сопоставляется контрагенту, если адрес-отправитель ему принадлежит.
+The deposit is also automatically matched to a counterparty if the sender address belongs to one.
 
-<Expandable title="Глоссарий" default-open="false">
-  - **TOPUP** - тип события вебхука о входящем поступлении (единственный обрабатываемый сейчас).
-  - **Wallet Service** - внешний сервис, отслеживающий адреса и вызывающий вебхук.
-  - **contract address** - ончейн-адрес контракта токена; по нему токен резолвится из реестра.
-  - **депозит** - запись о зачисленном поступлении.
-  - **amlStatus / amlDetails** - placeholder-поля под будущий automation engine.
+<Expandable title="Glossary" default-open="false">
+  - **TOPUP**: the webhook event type for an incoming deposit (the only one currently processed).
+  - **Wallet Service**: an external service that monitors addresses and calls the webhook.
+  - **contract address**: the on-chain address of a token's contract, used to resolve the token from the registry.
+  - **deposit**: a record of a credited incoming payment.
+  - **amlStatus / amlDetails**: placeholder fields for the future automation engine.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                    | Причина                                                      |
-| -------------------------- | ------------------------------------------------------------ |
-| депозит не появился        | Wallet Service не прислал `TOPUP` или адрес не отслеживается |
-| токен не зачислен          | contract address нет в реестре - резолв не удался            |
-| баланс не вырос            | смотрите на `available`, проверьте сеть и адрес-получатель   |
-| нет привязки к контрагенту | адрес-отправитель не принадлежит ни одному контрагенту       |
-| в проде вебхук отклонён    | не пройдёт HMAC-подпись (в демо её нет)                      |
+| Symptom                       | Cause                                                                 |
+| ----------------------------- | --------------------------------------------------------------------- |
+| deposit didn't appear         | Wallet Service didn't send `TOPUP`, or the address isn't monitored    |
+| token wasn't credited         | the contract address isn't in the registry, so resolution failed      |
+| balance didn't increase       | check `available`, and verify the network and recipient address       |
+| no counterparty link          | the sender address doesn't belong to any counterparty                 |
+| webhook rejected in production | the HMAC signature check failed (there's none in demo)               |
 
-## Готово, если
+## You're done when
 
-- событие `TOPUP` обработано, создан депозит;
-- `GET .../deposits/{id}` возвращает `amountDecimal` и `token`;
-- поступление видно в `history?direction=in`;
-- `available` в `balances` вырос на сумму депозита.
+- the `TOPUP` event was processed and a deposit was created;
+- `GET .../deposits/{id}` returns `amountDecimal` and `token`;
+- the deposit is visible in `history?direction=in`;
+- `available` in `balances` increased by the deposit amount.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Как зачисление отражается проводками и в балансе.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    How a credit is reflected in entries and the balance.
   </Card>
 
-  <Card title="Контрагенты и контекст" href="/concepts/counterparties" icon="handshake" horizontal="false">
-    Автосопоставление поступления к контрагенту.
+  <Card title="Counterparties and context" href="/concepts/counterparties" icon="handshake" horizontal="false">
+    Auto-matching deposits to counterparties.
   </Card>
 
-  <Card title="Сгенерировать адреса" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
-    Адреса для приёма средств.
+  <Card title="Generate addresses" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
+    Addresses for receiving funds.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Контракт вебхука и схема депозита.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    The webhook contract and deposit schema.
   </Card>
 </Columns>
-

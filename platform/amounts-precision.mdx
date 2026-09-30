@@ -1,86 +1,85 @@
 ---
-title: Суммы и точность
+title: Amounts and precision
 description: >-
-  Как V3 Custody хранит и передаёт суммы - минимальные единицы (raw) и
-  десятичное представление, конвертация по decimals сети.
+  How V3 Custody stores and transmits amounts: smallest units (raw) and decimal
+  representation, converted using the network's decimals.
 ---
-Чтобы избежать ошибок округления с плавающей точкой, суммы учитываются в **минимальной неделимой единице** токена (raw, целое число), а показываются в десятичном виде для человека. Мостом между ними служит `decimals` токена.
+To avoid floating-point rounding errors, amounts are tracked in the token's **smallest indivisible unit** (raw, an integer) and displayed in decimal form for humans. The token's `decimals` value bridges the two.
 
 <MermaidDiagram chart={`
 flowchart LR
-DEC["decimal — для человека (1350.00)"] -->|"× 10^decimals"| RAW["raw — целое в мин. единицах (строка)"]
+DEC["decimal — for humans (1350.00)"] -->|"× 10^decimals"| RAW["raw — integer in smallest units (string)"]
 RAW -->|"÷ 10^decimals"| DEC
 `} />
 
-## Raw и decimal
+## Raw and decimal
 
-- **`raw`** - целое число в минимальных единицах. Точное, без плавающей точки. Например, у USDT в TRON `decimals = 6`, поэтому `1 USDT = 1 000 000 raw`.
-- **decimal** - привычное представление: `"1350.00"`.
-- **`decimals`** - масштаб токена в сети: `raw = decimal × 10^decimals`.
+- **`raw`**: an integer in the smallest units. Exact, with no floating point. For example, USDT on TRON has `decimals = 6`, so `1 USDT = 1,000,000 raw`.
+- **decimal**: the familiar representation, such as `"1350.00"`.
+- **`decimals`**: the token's scale on the network: `raw = decimal × 10^decimals`.
 
-| Токен       | decimals | decimal | raw              |
+| Token       | decimals | decimal | raw              |
 | ----------- | -------- | ------- | ---------------- |
 | USDT (TRON) | 6        | 1.5     | 1500000          |
 | ETH         | 18       | 0.001   | 1000000000000000 |
 
-## В запросах и ответах
+## In requests and responses
 
-На входе (например, при создании перевода) вы передаёте **десятичную** сумму - платформа конвертирует её по `decimals`. В ответах присутствуют оба представления. Проверка баланса выполняется в raw.
+On input (for example, when creating a transfer), you pass a **decimal** amount, and the platform converts it using `decimals`. Responses include both representations. Balance checks are performed in raw.
 
-| Поле               | Представление                                    | Где встречается               |
-| ------------------ | ------------------------------------------------ | ----------------------------- |
-| `amount`           | raw (или десятичный ввод - зависит от эндпоинта) | ответы; вход части эндпоинтов |
-| `amountDecimal`    | десятичное                                       | ответы                        |
-| `relatedAmountRaw` | raw                                              | частичный возврат             |
+| Field              | Representation                                         | Where it's used                       |
+| ------------------ | ------------------------------------------------------ | ------------------------------------- |
+| `amount`           | raw (or decimal input, depending on the endpoint)      | responses; input for some endpoints   |
+| `amountDecimal`    | decimal                                                | responses                             |
+| `relatedAmountRaw` | raw                                                    | partial refunds                       |
 
 <Callout kind="alert" collapsed="false">
-  Имена и смысл полей суммы различаются по эндпоинтам (где-то `amount` - это raw, где-то - десятичный ввод). Точную семантику для конкретного эндпоинта смотрите в [Справочнике API](/api-reference).
+  Amount field names and meanings vary by endpoint (in some, `amount` is raw; in others, it's decimal input). See the [API Reference](/api-reference) for the exact semantics of a specific endpoint.
 </Callout>
 
-## Почему raw
+## Why raw
 
-Целочисленная арифметика в минимальных единицах исключает дрейф плавающей точки: проводки журнала сходятся в ноль точно, а балансы всегда согласованы с журналом. Подробнее - на странице [Журнал (двойная запись)](/concepts/ledger).
+Integer arithmetic in the smallest units eliminates floating-point drift: ledger entries net to exactly zero, and balances always match the ledger. For details, see [Ledger (double-entry)](/concepts/ledger).
 
-## Рекомендации для интеграции
+## Integration recommendations
 
-- Передавайте и храните raw-суммы как **строки** - большие значения (например, 18 знаков у ETH) выходят за пределы безопасных целых в JavaScript. В ответах суммы приходят строками (`"1350000000"`).
-- Для конвертации и отображения используйте библиотеки десятичной арифметики, а не числа с плавающей точкой.
+- Pass and store raw amounts as **strings**. Large values (for example, ETH's 18 decimal places) exceed JavaScript's safe integer range. Responses return amounts as strings (`"1350000000"`).
+- Use decimal arithmetic libraries for conversion and display, not floating-point numbers.
 
-<Expandable title="Глоссарий" default-open="false">
-  * **raw** - целое в минимальных единицах токена (без плавающей точки).
-  * **decimal** - человекочитаемое представление суммы.
-  * **decimals** - масштаб токена: `raw = decimal × 10^decimals`.
-  * **amount / amountDecimal** - raw и десятичное поля в ответах.
-  * **relatedAmountRaw** - raw-сумма частичного возврата.
+<Expandable title="Glossary" default-open="false">
+  * **raw**: an integer in the token's smallest units (no floating point).
+  * **decimal**: the human-readable representation of an amount.
+  * **decimals**: the token's scale: `raw = decimal × 10^decimals`.
+  * **amount / amountDecimal**: the raw and decimal fields in responses.
+  * **relatedAmountRaw**: the raw amount of a partial refund.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                               | Причина                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------- |
-| суммы «не сходятся» на копейки        | float вместо целочисленной/десятичной арифметики                          |
-| потеря точности / переполнение в JS   | raw как `number`, а не строка (18 знаков ETH > `Number.MAX_SAFE_INTEGER`) |
-| сумма больше/меньше в 10^decimals раз | перепутаны raw и decimal на входе                                         |
-| `amount` трактован одинаково везде    | семантика поля различается по эндпоинтам - сверьте в Справочнике          |
-| неверный масштаб                      | взят чужой `decimals` (у USDT-TRON 6, у ETH 18)                           |
+| Symptom                                       | Cause                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| amounts are off by a few cents                | floats used instead of integer or decimal arithmetic                               |
+| precision loss or overflow in JS              | raw stored as a `number`, not a string (ETH's 18 decimals exceed `Number.MAX_SAFE_INTEGER`) |
+| amount is 10^decimals times too large or small | raw and decimal were mixed up on input                                            |
+| `amount` treated the same everywhere          | the field's semantics vary by endpoint; check the API Reference                    |
+| wrong scale                                   | the wrong token's `decimals` was used (USDT-TRON has 6, ETH has 18)                |
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Точная арифметика проводок и балансов.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    Exact arithmetic for entries and balances.
   </Card>
 
-  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
-    Сумма перевода: raw и decimal на практике.
+  <Card title="Send a transfer" href="/guides/send-transfer" icon="send" horizontal="false">
+    Transfer amounts: raw and decimal in practice.
   </Card>
 
-  <Card title="Активы и сети" href="/platform/assets-networks" icon="coins" horizontal="false">
-    decimals токенов и поддерживаемые сети.
+  <Card title="Assets and networks" href="/platform/assets-networks" icon="coins" horizontal="false">
+    Token decimals and supported networks.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Семантика полей суммы по эндпоинтам.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Amount field semantics by endpoint.
   </Card>
 </Columns>
-

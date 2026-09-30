@@ -1,28 +1,28 @@
 ---
-title: Контрагенты и экономический контекст
+title: Counterparties and economic context
 description: >-
-  Кто на другой стороне операции и зачем она - контрагенты и автосопоставление
-  адресов, категории, метаданные и связи операций.
+  Who is on the other side of an operation and why it happened: counterparties
+  and address auto-matching, categories, metadata, and operation relations.
 ---
-Журнал записывает суммы, а контрагенты и метаданные записывают **смысл** - кто на другой стороне и зачем была операция. Этот слой превращает сырые движения средств в бизнес-события, по которым можно строить отчёты.
+The ledger records amounts, while counterparties and metadata record **meaning**: who is on the other side and why the operation happened. This layer turns raw movements of funds into business events you can build reports on.
 
-## Три слоя контекста
+## Three layers of context
 
-Экономический контекст складывается из трёх слоёв - их легко перепутать:
+Economic context is made up of three layers, which are easy to confuse:
 
-| Слой                   | Отвечает на           | Механизм                            |
-| ---------------------- | --------------------- | ----------------------------------- |
-| Контрагенты            | кто на другой стороне | набор адресов + авто-матч           |
-| Категории и метаданные | зачем операция        | справочник категорий + плоские поля |
-| Связи операций         | как операции связаны  | явные ссылки refund/reversal/…      |
+| Layer                       | Answers                        | Mechanism                                    |
+| --------------------------- | ------------------------------ | -------------------------------------------- |
+| Counterparties              | who is on the other side       | a set of addresses + auto-match              |
+| Categories and metadata     | why the operation happened     | a category catalog + flat fields             |
+| Operation relations         | how operations are related     | explicit refund/reversal/… links             |
 
-## Контрагент - это набор адресов
+## A counterparty is a set of addresses
 
-Контрагент - именованная сущность с привязанными адресами. Имя уникально в рамках Vault'а, а каждый адрес принадлежит **максимум одному** контрагенту - иначе сопоставление было бы неоднозначным. Сети адресов проверяются по реестру Networks.
+A counterparty is a named entity with linked addresses. The name is unique within a Vault, and each address belongs to **at most one** counterparty; otherwise, matching would be ambiguous. Address networks are validated against the Networks registry.
 
-- `POST /api/v1/vaults/{code}/counterparties` - создать контрагента (можно сразу с адресами).
-- `POST /api/v1/vaults/{code}/counterparties/{id}/addresses` - добавить адрес.
-- `GET /api/v1/vaults/{code}/counterparties` - список с фильтрами `search` (подстрока в имени) и `kind` (например, `exchange`).
+- `POST /api/v1/vaults/{code}/counterparties` creates a counterparty (optionally with addresses right away).
+- `POST /api/v1/vaults/{code}/counterparties/{id}/addresses` adds an address.
+- `GET /api/v1/vaults/{code}/counterparties` returns a list with the `search` (substring in the name) and `kind` (for example, `exchange`) filters.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -65,61 +65,61 @@ description: >-
 </CodeGroup>
 
 <Callout kind="alert" collapsed="false">
-  Набор полей тела приведён для примера. Точную схему сверьте со [Справочником API](/api-reference).
+  The body fields shown here are for illustration only. Check the exact schema in the [API Reference](/api-reference).
 </Callout>
 
-## Автосопоставление и ретро-матч
+## Auto-matching and retroactive matching
 
-Когда операция идёт на известный адрес или с него, она автоматически привязывается к контрагенту - вручную размечать не нужно. А если адрес добавлен позже, срабатывает **ретро-матч**: уже существующие операции с этим адресом сопоставляются контрагенту задним числом, а история классификации сохраняется.
+When an operation goes to or from a known address, it's automatically linked to the counterparty, so there's no need to tag it manually. And if an address is added later, a **retroactive match** kicks in: existing operations involving that address are matched to the counterparty after the fact, and the classification history is preserved.
 
 <MermaidDiagram chart={`
 flowchart LR
-OP["Операция на/с адреса"] -->|адрес известен| CP["Контрагент"]
-NEW["Добавили адрес позже"] -->|ретро-матч: прошлые операции| CP
+OP["Operation to/from address"] -->|address is known| CP["Counterparty"]
+NEW["Address added later"] -->|retroactive match: past operations| CP
 `} />
 
 <Callout kind="info" collapsed="false">
-  Смысл ретро-матча: классификация не теряется и не требует ручного разбора постфактум - достаточно добавить адрес к контрагенту.
+  The point of retroactive matching is that classification is never lost and doesn't require manual cleanup after the fact: just add the address to the counterparty.
 </Callout>
 
-## Группы контрагентов
+## Counterparty groups
 
-Контрагентов можно объединять - например, по типу или юрисдикции:
+Counterparties can be grouped, for example, by type or jurisdiction:
 
-- `POST /api/v1/vaults/{code}/counterparty-groups` - создать группу (члены добавляются отдельно). Мутация гейтится политикой `counterparty_group_create`: при требовании подписи вернётся заявка.
+- `POST /api/v1/vaults/{code}/counterparty-groups` creates a group (members are added separately). This mutation is gated by the `counterparty_group_create` policy: if approval is required, an approval request is returned.
 
-## Архивация: история не теряется
+## Archiving: history is never lost
 
-Контрагента не удаляют, а архивируют:
+Counterparties aren't deleted; they're archived:
 
-- `POST /api/v1/vaults/{code}/counterparties/{id}/archive` - `archived=true`: контрагент перестаёт матчиться на новые операции и недоступен для новых переводов, но история сохраняется; `false` - вернуть. Гейтится политикой `counterparty_archive`.
+- `POST /api/v1/vaults/{code}/counterparties/{id}/archive` with `archived=true`: the counterparty stops matching new operations and can't be used for new transfers, but its history is preserved; `false` restores it. Gated by the `counterparty_archive` policy.
 
-## Категории операций
+## Operation categories
 
-Категории - это настраиваемый версионируемый справочник, по которому собираются отчёты и фильтры:
+Categories are a configurable, versioned catalog used to build reports and filters:
 
-- `GET /api/v1/vaults/{code}/operation-categories` - список категорий Vault'а. Схема видна любому участнику (из неё собирают `categoryKey`, `groupByField`, `metricField` для конструктора отчётов); `viewScope` ограничивает доступ к значениям на операциях, а не к самой схеме.
+- `GET /api/v1/vaults/{code}/operation-categories` returns the Vault's category list. The schema is visible to every member (it's used to build `categoryKey`, `groupByField`, and `metricField` for the report builder); `viewScope` restricts access to the values on operations, not to the schema itself.
 
-У категории могут быть свои аппруверы (`POST` / `DELETE /api/v1/vaults/{code}/operation-categories/{id}/approvers`) - так операции определённой категории могут требовать подтверждения назначенных людей (см. [Аппрувалы](/concepts/approvals)).
+A category can have its own approvers (`POST` / `DELETE /api/v1/vaults/{code}/operation-categories/{id}/approvers`), so operations in a certain category can require approval from designated people (see [Approvals](/concepts/approvals)).
 
-## Метаданные операции
+## Operation metadata
 
-Метаданные привязывают к операции её бизнес-контекст. `GET` / `PATCH /api/v1/vaults/{code}/operations/{type}/{id}/metadata` делает upsert плоских полей; каждое изменение инкрементирует `version`.
+Metadata attaches business context to an operation. `GET` / `PATCH /api/v1/vaults/{code}/operations/{type}/{id}/metadata` upserts flat fields; each change increments `version`.
 
-| Поле                                                                 | Что это                          |
-| -------------------------------------------------------------------- | -------------------------------- |
-| `paymentPurpose`                                                     | назначение платежа               |
-| `category`                                                           | код из справочника категорий     |
-| `tags`                                                               | произвольные теги                |
-| `description`                                                        | описание                         |
-| `dealId` / `invoiceId` / `orderId` / `settlementId` / `obligationId` | внешние референсы и бизнес-связи |
+| Field                                                                | What it is                                  |
+| -------------------------------------------------------------------- | ------------------------------------------- |
+| `paymentPurpose`                                                     | payment purpose                             |
+| `category`                                                           | a code from the category catalog            |
+| `tags`                                                               | arbitrary tags                              |
+| `description`                                                        | description                                 |
+| `dealId` / `invoiceId` / `orderId` / `settlementId` / `obligationId` | external references and business links      |
 
 <CodeGroup show-lines="true">
   ```bash
   curl -X PATCH "[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata" \
     -H "Authorization: Bearer $V3_TOKEN" \
     -H "Content-Type: application/json" \
-    -d '{ "paymentPurpose": "Оплата инвойса", "category": "settlement", "invoiceId": "INV-2026-0042" }'
+    -d '{ "paymentPurpose": "Invoice payment", "category": "settlement", "invoiceId": "INV-2026-0042" }'
   ```
 
   ```javascript
@@ -130,7 +130,7 @@ NEW["Добавили адрес позже"] -->|ретро-матч: прош�
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      paymentPurpose: "Оплата инвойса",
+      paymentPurpose: "Invoice payment",
       category: "settlement",
       invoiceId: "INV-2026-0042",
     }),
@@ -142,7 +142,7 @@ NEW["Добавили адрес позже"] -->|ретро-матч: прош�
       "[BASE_URL]/api/v1/vaults/acme-otc/operations/transfer/OPERATION_ID/metadata",
       headers={"Authorization": f"Bearer {os.environ['V3_TOKEN']}"},
       json={
-          "paymentPurpose": "Оплата инвойса",
+          "paymentPurpose": "Invoice payment",
           "category": "settlement",
           "invoiceId": "INV-2026-0042",
       },
@@ -151,53 +151,52 @@ NEW["Добавили адрес позже"] -->|ретро-матч: прош�
 </CodeGroup>
 
 <Callout kind="tip" collapsed="false">
-  Не путайте две вещи: плоское поле `category` в метаданных конкретной операции - это ссылка на код из версионируемого справочника категорий, а не сама категория.
+  Don't confuse the two: the flat `category` field in a specific operation's metadata is a reference to a code from the versioned category catalog, not the category itself.
 </Callout>
 
-## Связи операций
+## Operation relations
 
-Операции можно явно связывать друг с другом, чтобы отразить экономическую связь:
+Operations can be explicitly linked to each other to reflect an economic relationship:
 
-| Тип связи     | Смысл                                            |
-| ------------- | ------------------------------------------------ |
-| `refund`      | возврат средств (частичный - `relatedAmountRaw`) |
-| `reversal`    | сторно / отмена исходной операции                |
-| `correction`  | исправление ошибки                               |
-| `replacement` | замена операции на новую                         |
+| Relation type | Meaning                                              |
+| ------------- | ---------------------------------------------------- |
+| `refund`      | a return of funds (partial refunds use `relatedAmountRaw`) |
+| `reversal`    | a reversal or cancellation of the original operation |
+| `correction`  | an error correction                                  |
+| `replacement` | replacement of the operation with a new one          |
 
-- `POST /api/v1/vaults/{code}/operation-relations` - создать связь. Встречный платёж **не считается** возвратом автоматически - связь указывается явно.
+- `POST /api/v1/vaults/{code}/operation-relations` creates a relation. An opposite payment is **not** automatically treated as a refund; the link must be set explicitly.
 
-Как эти связи сочетаются с неизменяемостью журнала - на странице [Журнал (двойная запись)](/concepts/ledger).
+For how these relations work with the ledger's immutability, see [Ledger (double-entry)](/concepts/ledger).
 
-## Термины
+## Terms
 
-<Expandable title="Словарь контекста" default-open="false">
-  - **Контрагент** - именованный набор адресов; операции авто-сопоставляются по адресу.
-  - **Ретро-матч** - сопоставление прошлых операций контрагенту после добавления адреса.
-  - **Категория** - версионируемый код из справочника для отчётов/фильтров.
-  - **Метаданные** - плоские бизнес-поля на операции (`paymentPurpose`, референсы…).
-  - **`viewScope`** - ограничение доступа к значениям категорий на операциях.
-  - **Связь операций** - явная ссылка одной операции на другую.
-  - **`counterparty_archive`** - политика, гейтящая архивацию контрагента.
+<Expandable title="Context glossary" default-open="false">
+  - **Counterparty**: a named set of addresses; operations are auto-matched by address.
+  - **Retroactive match**: matching past operations to a counterparty after an address is added.
+  - **Category**: a versioned code from the catalog, used for reports and filters.
+  - **Metadata**: flat business fields on an operation (`paymentPurpose`, references…).
+  - **`viewScope`**: a restriction on access to category values on operations.
+  - **Operation relation**: an explicit link from one operation to another.
+  - **`counterparty_archive`**: the policy that gates counterparty archiving.
 </Expandable>
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Обработать поступление" href="/guides/handle-deposit" icon="arrow-down-to-line" horizontal="false">
-    Авто-матч поступления к контрагенту.
+  <Card title="Handle a deposit" href="/guides/handle-deposit" icon="arrow-down-to-line" horizontal="false">
+    Auto-matching a deposit to a counterparty.
   </Card>
 
-  <Card title="Отчёты и снапшоты" href="/guides/reports-snapshots" icon="chart-column" horizontal="false">
-    Категории и метаданные в отчётах.
+  <Card title="Reports and snapshots" href="/guides/reports-snapshots" icon="chart-column" horizontal="false">
+    Categories and metadata in reports.
   </Card>
 
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Неизменяемость и связи операций.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    Immutability and operation relations.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Контрагенты, категории, метаданные и связи.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Counterparties, categories, metadata, and relations.
   </Card>
 </Columns>
-

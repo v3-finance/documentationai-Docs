@@ -1,40 +1,40 @@
 ---
-title: Построить отчёт и зафиксировать снапшот
+title: Build a report and capture a snapshot
 description: >-
-  Собрать живой отчёт (account statement), зафиксировать иммутабельный снапшот с
-  хешем и выгрузить его в JSON/CSV.
+  Build a live report (account statement), capture an immutable snapshot with a
+  hash, and export it to JSON/CSV.
 ---
-Отчёты бывают двух видов: **живые** (меняются вместе с данными) и **снапшоты** (зафиксированы с хешем, воспроизводимы). Для выписок и сверок вы фиксируете снапшот, а потом выгружаете его. Про неизменяемость и балансы на дату - в [Журнале](/concepts/ledger).
+Reports come in two kinds: **live** reports (which change along with the data) and **snapshots** (captured with a hash and reproducible). For statements and reconciliations, you capture a snapshot and then export it. For immutability and point-in-time balances, see [Ledger](/concepts/ledger).
 
-Путь от данных до выгрузки:
+The path from data to export:
 
 <MermaidDiagram chart={`
 flowchart TD
-DATA["Данные Vault'а"] --> LIVE["Живой отчёт — меняется с данными"]
+DATA["Vault data"] --> LIVE["Live report — changes with the data"]
 DATA --> SNAP["POST /report-snapshots"]
-SNAP --> FIX["dataCutoff + манифест + sha256"]
-FIX --> STORE["Иммутабельный снапшот"]
-STORE --> EXP["Экспорт (json | csv)"]
+SNAP --> FIX["dataCutoff + manifest + sha256"]
+FIX --> STORE["Immutable snapshot"]
+STORE --> EXP["Export (json | csv)"]
 `} />
 
-## Что понадобится
+## Prerequisites
 
-- `code` Vault'а и период (`from` / `to`).
-- Токен доступа (см. [Аутентификацию](/authentication)).
-- id снапшота - для чтения и экспорта.
+- The Vault's `code` and a period (`from` / `to`).
+- An access token (see [Authentication](/authentication)).
+- A snapshot id, for reading and exporting.
 
-Живой отчёт и снапшот - когда что брать:
+When to use a live report and when to use a snapshot:
 
-|                   | Живой отчёт       | Снапшот                       |
-| ----------------- | ----------------- | ----------------------------- |
-| данные            | текущие, меняются | зафиксированы на `dataCutoff` |
-| воспроизводимость | нет               | да (canonical sha256)         |
-| экспорт           | -                 | `json` / `csv`                |
-| применение        | быстрый просмотр  | выписки, сверки, аудит        |
+|                   | Live report            | Snapshot                         |
+| ----------------- | ---------------------- | -------------------------------- |
+| data              | current, changing      | captured as of `dataCutoff`      |
+| reproducibility   | no                     | yes (canonical sha256)           |
+| export            | -                      | `json` / `csv`                   |
+| use case          | quick review           | statements, reconciliation, audit |
 
-## Шаг 1. Постройте живой отчёт
+## Step 1. Build a live report
 
-`GET /api/v1/vaults/{code}/reports/account_statement` строит выписку за период.
+`GET /api/v1/vaults/{code}/reports/account_statement` builds a statement for a period.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -60,26 +60,26 @@ STORE --> EXP["Экспорт (json | csv)"]
   ```
 </CodeGroup>
 
-Параметры выписки:
+Statement parameters:
 
-| Параметр            | Обяз. | Назначение                    |
-| ------------------- | ----- | ----------------------------- |
-| `from` / `to`       | да    | границы периода               |
-| `timezone`          | нет   | зона расчёта суток            |
-| `userId`            | нет   | admin: сузить до пользователя |
-| `breakdownBy=owner` | нет   | разбивка по владельцу         |
+| Parameter           | Required | Purpose                          |
+| ------------------- | -------- | -------------------------------- |
+| `from` / `to`       | yes      | period boundaries                |
+| `timezone`          | no       | time zone for day boundaries     |
+| `userId`            | no       | admin: narrow down to a user     |
+| `breakdownBy=owner` | no       | breakdown by owner               |
 
-Живой отчёт отражает текущее состояние данных. Рядом есть другие:
+A live report reflects the current state of the data. Other reports are available too:
 
-| Отчёт                               | Запрос                              |
-| ----------------------------------- | ----------------------------------- |
-| выписка (account statement)         | `GET .../reports/account_statement` |
-| активность по аппрувалам            | `GET .../reports/approval_activity` |
-| плоский реестр операций по фильтрам | `POST .../reports/query-operations` |
+| Report                                  | Request                             |
+| --------------------------------------- | ----------------------------------- |
+| account statement                       | `GET .../reports/account_statement` |
+| approval activity                       | `GET .../reports/approval_activity` |
+| flat operations register by filters     | `POST .../reports/query-operations` |
 
-## Шаг 2. Зафиксируйте снапшот
+## Step 2. Capture a snapshot
 
-`POST /api/v1/vaults/{code}/report-snapshots` формирует отчёт, фиксирует `dataCutoff` и сохраняет результат вместе с манифестом операций и canonical sha256.
+`POST /api/v1/vaults/{code}/report-snapshots` generates the report, records the `dataCutoff`, and stores the result along with an operations manifest and a canonical sha256.
 
 <CodeGroup show-lines="true">
   ```bash
@@ -125,21 +125,21 @@ STORE --> EXP["Экспорт (json | csv)"]
 </CodeGroup>
 
 <Callout kind="info" collapsed="false">
-  Снапшот иммутабелен: повторный просмотр даёт те же цифры, даже если с тех пор поменялись операции, курс или имена (ретро-матч, переименования). Слишком большой результат (>\~900KB) вернёт `REPORT_PERIOD_TOO_LARGE` - сузьте фильтры. Точную схему тела сверьте со [Справочником API](/api-reference).
+  A snapshot is immutable: viewing it again returns the same figures, even if operations, exchange rates, or names have changed since (retroactive matches, renames). A result that's too large (>\~900KB) returns `REPORT_PERIOD_TOO_LARGE`; narrow the filters. Check the exact body schema in the [API Reference](/api-reference).
 </Callout>
 
-## Шаг 3. Найдите и прочитайте снапшоты
+## Step 3. Find and read snapshots
 
-| Действие                               | Запрос                                   |
-| -------------------------------------- | ---------------------------------------- |
-| список (фильтры `reportType`, `limit`) | `GET .../report-snapshots`               |
-| один снапшот                           | `GET .../report-snapshots/{id}`          |
-| удалить                                | `DELETE .../report-snapshots/{id}`       |
-| экспорт                                | `POST .../report-snapshots/{id}/exports` |
+| Action                                  | Request                                  |
+| --------------------------------------- | ---------------------------------------- |
+| list (filters: `reportType`, `limit`)   | `GET .../report-snapshots`               |
+| single snapshot                         | `GET .../report-snapshots/{id}`          |
+| delete                                  | `DELETE .../report-snapshots/{id}`       |
+| export                                  | `POST .../report-snapshots/{id}/exports` |
 
-## Шаг 4. Выгрузите снапшот
+## Step 4. Export the snapshot
 
-Экспорт строится **из снапшота**, а не из живого запроса - поэтому выгрузка совпадает с зафиксированными цифрами:
+The export is built **from the snapshot**, not from a live query, so it always matches the captured figures:
 
 <CodeGroup show-lines="true">
   ```bash
@@ -169,62 +169,61 @@ STORE --> EXP["Экспорт (json | csv)"]
   ```
 </CodeGroup>
 
-Поддерживаемые форматы экспорта:
+Supported export formats:
 
-| Формат | Статус                                       |
-| ------ | -------------------------------------------- |
-| `json` | поддерживается                               |
-| `csv`  | поддерживается (плоский реестр операций)     |
-| `xlsx` | зарезервирован → `REPORT_UNSUPPORTED_FORMAT` |
-| `pdf`  | зарезервирован → `REPORT_UNSUPPORTED_FORMAT` |
+| Format | Status                                        |
+| ------ | --------------------------------------------- |
+| `json` | supported                                     |
+| `csv`  | supported (flat operations register)          |
+| `xlsx` | reserved → `REPORT_UNSUPPORTED_FORMAT`        |
+| `pdf`  | reserved → `REPORT_UNSUPPORTED_FORMAT`        |
 
 <Callout kind="alert" collapsed="false">
-  Сейчас поддерживаются форматы `json` и `csv`. `xlsx` и `pdf` пока зарезервированы - возвращают `REPORT_UNSUPPORTED_FORMAT` до отдельной итерации.
+  Currently, `json` and `csv` are supported. `xlsx` and `pdf` are reserved for now and return `REPORT_UNSUPPORTED_FORMAT` until a future release.
 </Callout>
 
-<Expandable title="Глоссарий" default-open="false">
-  - **живой отчёт** - отражает текущее состояние данных и меняется вместе с ними.
-  - **снапшот** - иммутабельная фиксация отчёта с хешем.
-  - **dataCutoff** - момент фиксации; данные после него в снапшот не входят.
-  - **манифест операций** - перечень операций, вошедших в снапшот.
-  - **canonical sha256** - хеш канонизированного результата для воспроизводимости.
-  - **ретро-матч** - сопоставление задним числом (курс/контрагент); в снапшоте зафиксировано на `dataCutoff`.
+<Expandable title="Glossary" default-open="false">
+  - **live report**: reflects the current state of the data and changes along with it.
+  - **snapshot**: an immutable, hashed capture of a report.
+  - **dataCutoff**: the capture point; data after it isn't included in the snapshot.
+  - **operations manifest**: the list of operations included in the snapshot.
+  - **canonical sha256**: a hash of the canonicalized result, for reproducibility.
+  - **retroactive match**: a match applied after the fact (exchange rate or counterparty); in a snapshot, it's fixed as of `dataCutoff`.
 </Expandable>
 
-## Частые ошибки
+## Common mistakes
 
-| Симптом                          | Причина                                             |
-| -------------------------------- | --------------------------------------------------- |
-| `REPORT_PERIOD_TOO_LARGE`        | результат > \~900KB - сузьте период или фильтры     |
-| `REPORT_UNSUPPORTED_FORMAT`      | запрошен `xlsx`/`pdf` - пока только `json`/`csv`    |
-| цифры «поплыли» между выгрузками | экспорт шёл из живого запроса, а не из снапшота     |
-| снапшот не совпал с ожиданием    | смотрите `dataCutoff` - данные после него не входят |
-| пустой отчёт                     | не заданы `from`/`to` или период вне данных         |
+| Symptom                                  | Cause                                                           |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `REPORT_PERIOD_TOO_LARGE`                | the result is > \~900KB; narrow the period or filters           |
+| `REPORT_UNSUPPORTED_FORMAT`              | `xlsx`/`pdf` was requested; only `json`/`csv` for now           |
+| figures "drift" between exports          | the export came from a live query, not a snapshot               |
+| snapshot doesn't match expectations      | check `dataCutoff`: data after it isn't included                |
+| empty report                             | `from`/`to` weren't set, or the period has no data              |
 
-## Готово, если
+## You're done when
 
-- живой отчёт возвращает данные за период;
-- `POST /report-snapshots` вернул снапшот с `dataCutoff` и sha256;
-- `GET .../report-snapshots/{id}` даёт те же цифры при повторном чтении;
-- экспорт (`json`/`csv`) строится из снапшота и совпадает с ним.
+- the live report returns data for the period;
+- `POST /report-snapshots` returned a snapshot with a `dataCutoff` and sha256;
+- `GET .../report-snapshots/{id}` returns the same figures on repeated reads;
+- the export (`json`/`csv`) is built from the snapshot and matches it.
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Журнал (двойная запись)" href="/concepts/ledger" icon="scale" horizontal="false">
-    Балансы на дату и неизменяемость журнала.
+  <Card title="Ledger (double-entry)" href="/concepts/ledger" icon="scale" horizontal="false">
+    Point-in-time balances and ledger immutability.
   </Card>
 
-  <Card title="Контрагенты и контекст" href="/concepts/counterparties" icon="handshake" horizontal="false">
-    Категории и метаданные в отчётах.
+  <Card title="Counterparties and context" href="/concepts/counterparties" icon="handshake" horizontal="false">
+    Categories and metadata in reports.
   </Card>
 
-  <Card title="Пагинация и фильтры" href="/platform/pagination-filtering" icon="chevrons-right" horizontal="false">
-    Фильтры для query-operations и списков.
+  <Card title="Pagination and filters" href="/platform/pagination-filtering" icon="chevrons-right" horizontal="false">
+    Filters for query-operations and lists.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Отчёты, снапшоты и экспорт.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    Reports, snapshots, and exports.
   </Card>
 </Columns>
-

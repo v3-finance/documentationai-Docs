@@ -1,91 +1,90 @@
 ---
 title: Gas Station
 description: >-
-  Единый газовый баланс, из которого оплачивается комиссия сети - адреса
-  работают с первой секунды, без активации и предварительного пополнения.
+  A single gas balance that pays network fees, so addresses work from the
+  first second, with no activation or prefunding.
 ---
-Обычно только что созданный адрес не может отправить ни цента, пока на него не придёт нативный газ - TRX, ETH или BNB. Gas Station убирает этот шаг: вы пополняете **один** баланс, и каждый адрес работает с первой секунды. Управлять газом на каждом адресе не нужно.
+Normally, a freshly created address can't send a single cent until it receives native gas: TRX, ETH, or BNB. Gas Station removes this step: you top up **one** balance, and every address works from the first second. There's no need to manage gas on each address.
 
-## Один баланс вместо газа на каждом адресе
+## One balance instead of gas on every address
 
-Вы пополняете единый баланс Gas Station - нативной монетой или обычным USDT - и комиссия любой операции берётся из него. Новый адрес не требует активации или предварительного пополнения: он готов к отправке сразу после создания.
+You top up a single Gas Station balance, in the native coin or plain USDT, and the fee for any operation is paid from it. A new address needs no activation or prefunding: it's ready to send right after it's created.
 
-Это меняет модель работы: адреса можно заводить свободно, под каждого клиента или заявку (см. [Vault и деривация](/concepts/vaults)), не задумываясь, «хватит ли на нём газа».
+This changes how you work: you can create addresses freely, per client or per request (see [Vaults and derivation](/concepts/vaults)), without worrying whether they "have enough gas."
 
 <MermaidDiagram chart={`
 flowchart LR
-subgraph S1["Обычный кошелёк"]
-  H["Горячий кошелёк"] -->|заправка газом, виден след| A1["Каждый адрес держит газ"]
+subgraph S1["Typical wallet"]
+  H["Hot wallet"] -->|gas top-up, visible trail| A1["Each address holds gas"]
 end
 subgraph S2["Gas Station"]
-  B["Единый баланс станции"] -->|комиссия под капотом| A2["Адрес работает сразу"]
+  B["Single station balance"] -->|fee handled under the hood| A2["Address works immediately"]
 end
 `} />
 
-## Как это устроено в разных сетях
+## How it works on different networks
 
-Механика зависит от сети, но результат один - адрес не держит собственного газа:
+The mechanism depends on the network, but the result is the same: the address doesn't hold its own gas:
 
-| Сеть                       | Механика                                         | Результат                           |
-| -------------------------- | ------------------------------------------------ | ----------------------------------- |
-| TRON                       | делегирование energy/bandwidth на время операции | адрес не держит своего газа         |
-| EVM (Ethereum, BNB Chain…) | спонсирование через relayer                      | комиссию платит спонсор, а не адрес |
+| Network                      | Mechanism                                          | Result                                        |
+| ---------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| TRON                         | energy/bandwidth delegation for the operation      | the address doesn't hold its own gas          |
+| EVM (Ethereum, BNB Chain…)   | sponsorship through a relayer                      | the sponsor pays the fee, not the address     |
 
-## Приватность
+## Privacy
 
-Поскольку адрес не заправляется газом с вашего «горячего» кошелька, в ончейне не остаётся следа самофинансирования - связки «кто кому отправил газ» не видно. Комиссии проходят через общий контур станции, а не через прямые переводы между вашими адресами.
+Because addresses aren't topped up with gas from your hot wallet, no on-chain trail of self-funding is left behind: there's no visible link showing who sent gas to whom. Fees go through the station's shared infrastructure, not through direct transfers between your addresses.
 
-## Прозрачно для интеграции
+## Transparent to your integration
 
-Отдельного «газового» шага в API нет. При отправке перевода комиссия покрывается автоматически - вы не рассчитываете и не прикладываете газ вручную.
+There's no separate gas step in the API. When you send a transfer, the fee is covered automatically; you don't calculate or attach gas manually.
 
 <Callout kind="info" collapsed="false">
-  Gas Station - это платформенная механика, а не эндпоинт, который вызывают на каждую операцию. Со стороны интеграции достаточно поддерживать баланс станции наполненным; всё остальное происходит под капотом.
+  Gas Station is a platform mechanism, not an endpoint you call for every operation. On the integration side, all you need to do is keep the station balance funded; everything else happens under the hood.
 </Callout>
 
-Со стороны интеграции вам **не нужно**:
+On the integration side, you **don't need to**:
 
-- заправлять новые адреса газом перед первой операцией;
-- держать нативную монету на каждом адресе;
-- рассчитывать и прикладывать комиссию к переводу.
+- top up new addresses with gas before their first operation;
+- hold the native coin on every address;
+- calculate and attach a fee to each transfer.
 
-## Что это даёт
+## What you get
 
-- **Адреса без активации** - работают с первой секунды.
-- **Свобода заведения адресов** - можно под каждого клиента или заявку, не думая о газе.
-- **Приватность** - нет следа самофинансирования.
-- **Прозрачность интеграции** - газ покрывается автоматически, без газовых вызовов.
+- **No address activation**: addresses work from the first second.
+- **Freedom to create addresses**: per client or per request, without thinking about gas.
+- **Privacy**: no self-funding trail.
+- **Transparent integration**: gas is covered automatically, with no gas-related calls.
 
-## Учёт и пополнение
+## Tracking and top-ups
 
-Расход газа учитывается, поэтому его видно в разрезе сети, клиента и кошелька, как часть общей картины оборотов. Чтобы станция не опустела, за её балансом стоит следить: низкий остаток можно отслеживать и настроить автоматическое пополнение.
+Gas consumption is tracked, so you can see it broken down by network, client, and wallet as part of your overall volume picture. To keep the station from running dry, monitor its balance: you can track a low balance and set up automatic top-ups.
 
-## Термины
+## Terms
 
-<Expandable title="Словарь Gas Station" default-open="false">
-  - **Газовый баланс** - единый баланс станции (нативка или USDT), из которого берётся комиссия.
-  - **Делегирование ресурсов** - выдача energy/bandwidth адресу в TRON на время операции без перевода монет.
-  - **relayer / спонсор** - сторона, оплачивающая комиссию за адрес в EVM-сетях.
-  - **Самофинансирование** - заправка адреса газом с собственного кошелька (оставляет ончейн-след; Gas Station его избегает).
+<Expandable title="Gas Station glossary" default-open="false">
+  - **Gas balance**: the station's single balance (native coin or USDT) that fees are paid from.
+  - **Resource delegation**: granting energy/bandwidth to a TRON address for the duration of an operation, without transferring coins.
+  - **Relayer / sponsor**: the party that pays the fee on behalf of an address on EVM networks.
+  - **Self-funding**: topping up an address with gas from your own wallet (this leaves an on-chain trail; Gas Station avoids it).
 </Expandable>
 
-## Что дальше
+## Next steps
 
 <Columns cols="2">
-  <Card title="Пополнить Gas Station" href="/guides/fund-gas-station" icon="fuel" horizontal="false">
-    Гайд по пополнению баланса станции.
+  <Card title="Fund Gas Station" href="/guides/fund-gas-station" icon="fuel" horizontal="false">
+    A guide to topping up the station balance.
   </Card>
 
-  <Card title="Сгенерировать адреса" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
-    Адреса, которые работают с первой секунды.
+  <Card title="Generate addresses" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
+    Addresses that work from the first second.
   </Card>
 
-  <Card title="Активы и сети" href="/platform/assets-networks" icon="coins" horizontal="false">
-    Реестр сетей и токенов.
+  <Card title="Assets and networks" href="/platform/assets-networks" icon="coins" horizontal="false">
+    The network and token registries.
   </Card>
 
-  <Card title="Обзор раздела" href="/concepts/overview" icon="compass" horizontal="false">
-    Как Gas Station связан с остальными концептами.
+  <Card title="Section overview" href="/concepts/overview" icon="compass" horizontal="false">
+    How Gas Station connects to the other concepts.
   </Card>
 </Columns>
-

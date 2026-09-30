@@ -1,77 +1,76 @@
 ---
-title: Обзор
+title: Overview
 description: >-
-  Практические руководства V3 Custody - пошаговые сценарии с реальными
-  запросами: от создания Vault'а до отчётов и Gas Station.
+  Practical V3 Custody guides: step-by-step scenarios with real requests, from
+  creating a Vault to reports and Gas Station.
 ---
-Этот раздел - это задачные руководства: как сделать конкретную вещь, шаг за шагом и с реальными запросами. Если [Основные понятия](/concepts/overview) объясняет, _как всё устроено_, то здесь - _как этим воспользоваться_.
+This section contains task-based guides: how to do a specific thing, step by step, with real requests. If [Core Concepts](/concepts/overview) explains _how everything works_, this section shows _how to use it_.
 
-От [Быстрого старта](/quickstart) гайды отличаются глубиной: quickstart даёт первое касание за пять минут, а каждый гайд разбирает одну задачу целиком - с граничными случаями и проверками.
+Guides differ from the [Quickstart](/quickstart) in depth: the quickstart gives you a first taste in five minutes, while each guide covers a single task end to end, including edge cases and checks.
 
-## Что понадобится
+## Prerequisites
 
-Во всех гайдах используется REST API с Bearer-токеном:
+All guides use the REST API with a Bearer token:
 
-- Базовый URL инстанса - в примерах `[BASE_URL]`.
-- Токен доступа для заголовка `Authorization` (см. [Аутентификацию](/authentication)).
+- Your instance's base URL, shown as `[BASE_URL]` in the examples.
+- An access token for the `Authorization` header (see [Authentication](/authentication)).
 
-## Что здесь есть
+## What's in this section
 
 <Columns cols="2">
-  <Card title="Создать Vault" href="/guides/create-vault" icon="folder-plus" horizontal="false">
-    Спроектировать оси адресов и завести Vault одним запросом.
+  <Card title="Create a Vault" href="/guides/create-vault" icon="folder-plus" horizontal="false">
+    Design your address axes and create a Vault in a single request.
   </Card>
 
-  <Card title="Сгенерировать адреса" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
-    Статические сегменты и пакетное создание.
+  <Card title="Generate addresses" href="/guides/generate-addresses" icon="copy-plus" horizontal="false">
+    Static segments and batch creation.
   </Card>
 
-  <Card title="Отправить перевод" href="/guides/send-transfer" icon="send" horizontal="false">
-    Идемпотентность, резерв и состояния, отмена.
+  <Card title="Send a transfer" href="/guides/send-transfer" icon="send" horizontal="false">
+    Idempotency, the reserve and states, cancellation.
   </Card>
 
-  <Card title="Пред-проверить перевод" href="/guides/evaluate-transfer" icon="search-check" horizontal="false">
-    `evaluate` до создания операции.
+  <Card title="Evaluate a transfer" href="/guides/evaluate-transfer" icon="search-check" horizontal="false">
+    `evaluate` before creating an operation.
   </Card>
 
-  <Card title="Обработать поступление" href="/guides/handle-deposit" icon="arrow-down-to-line" horizontal="false">
-    Вебхук Wallet Service и депозиты.
+  <Card title="Handle a deposit" href="/guides/handle-deposit" icon="arrow-down-to-line" horizontal="false">
+    The Wallet Service webhook and deposits.
   </Card>
 
-  <Card title="Пригласить команду" href="/guides/invite-team" icon="user-plus" horizontal="false">
-    Приглашения, роли и группы.
+  <Card title="Invite your team" href="/guides/invite-team" icon="user-plus" horizontal="false">
+    Invitations, roles, and groups.
   </Card>
 
-  <Card title="Выдать и отозвать доступ" href="/guides/share-access" icon="share-2" horizontal="false">
-    Адреса, папки и аудит доступа.
+  <Card title="Share and revoke access" href="/guides/share-access" icon="share-2" horizontal="false">
+    Addresses, folders, and access auditing.
   </Card>
 
-  <Card title="Отчёты и снапшоты" href="/guides/reports-snapshots" icon="chart-column" horizontal="false">
-    Выписки, иммутабельные снапшоты и экспорт.
+  <Card title="Reports and snapshots" href="/guides/reports-snapshots" icon="chart-column" horizontal="false">
+    Statements, immutable snapshots, and exports.
   </Card>
 
-  <Card title="Настроить политику (TODO)" href="/guides/configure-policies" icon="sliders-horizontal" horizontal="false">
-    Черновик - ждёт эндпоинтов записи политик.
+  <Card title="Configure a policy (TODO)" href="/guides/configure-policies" icon="sliders-horizontal" horizontal="false">
+    Draft: waiting on the policy write endpoints.
   </Card>
 
-  <Card title="Пополнить Gas Station (TODO)" href="/guides/fund-gas-station" icon="fuel" horizontal="false">
-    Черновик - ждёт gas-эндпоинтов.
+  <Card title="Fund Gas Station (TODO)" href="/guides/fund-gas-station" icon="fuel" horizontal="false">
+    Draft: waiting on the gas endpoints.
   </Card>
 </Columns>
 
-## С чего начать
+## Where to start
 
 <Columns cols="2">
-  <Card title="Быстрый старт" href="/quickstart" icon="zap" horizontal="false">
-    Первые вызовы к API за несколько минут.
+  <Card title="Quickstart" href="/quickstart" icon="zap" horizontal="false">
+    Your first API calls in a few minutes.
   </Card>
 
-  <Card title="Основные понятния" href="/concepts/overview" icon="compass" horizontal="false" target="_self">
-    Как устроены Vault, журнал, политики и аппрувалы.
+  <Card title="Core Concepts" href="/concepts/overview" icon="compass" horizontal="false" target="_self">
+    How Vaults, the ledger, policies, and approvals work.
   </Card>
 
-  <Card title="Справочник API" href="/api-reference" icon="code" horizontal="false">
-    Все эндпоинты, параметры и форматы ответов.
+  <Card title="API Reference" href="/api-reference" icon="code" horizontal="false">
+    All endpoints, parameters, and response formats.
   </Card>
 </Columns>
-
