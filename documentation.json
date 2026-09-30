@@ -15,47 +15,47 @@
         "icon": "book",
         "groups": [
           {
-            "group": "Начало работы",
+            "group": "Getting Started",
             "icon": "rocket",
             "pages": [
               {
-                "title": "Введение",
+                "title": "Introduction",
                 "path": "introduction",
                 "icon": "home"
               },
               {
-                "title": "Быстрый старт",
+                "title": "Quickstart",
                 "path": "quickstart",
                 "icon": "zap"
               },
               {
-                "title": "Аутентификация",
+                "title": "Authentication",
                 "path": "authentication",
                 "icon": "lock"
               }
             ]
           },
           {
-            "group": "Основные понятия",
+            "group": "Core Concepts",
             "icon": "layers",
             "pages": [
               {
-                "title": "Обзор",
+                "title": "Overview",
                 "path": "concepts/overview",
                 "icon": "compass"
               },
               {
-                "title": "Vault и деривация",
+                "title": "Vaults and derivation",
                 "path": "concepts/vaults",
                 "icon": "folder-tree"
               },
               {
-                "title": "Адреса, папки и доступ",
+                "title": "Addresses, folders, and access",
                 "path": "concepts/addresses",
                 "icon": "wallet"
               },
               {
-                "title": "Журнал (двойная запись)",
+                "title": "Ledger (double-entry)",
                 "path": "concepts/ledger",
                 "icon": "scale"
               },
@@ -65,12 +65,12 @@
                 "icon": "shield-check"
               },
               {
-                "title": "Аппрувалы",
+                "title": "Approvals",
                 "path": "concepts/approvals",
                 "icon": "check-check"
               },
               {
-                "title": "Контрагенты и контекст",
+                "title": "Counterparties and context",
                 "path": "concepts/counterparties",
                 "icon": "handshake"
               },
@@ -82,62 +82,62 @@
             ]
           },
           {
-            "group": "Руководства",
+            "group": "Guides",
             "icon": "list-checks",
             "pages": [
               {
-                "title": "Обзор",
+                "title": "Overview",
                 "path": "guides/overview",
                 "icon": "compass"
               },
               {
-                "title": "Создать Vault",
+                "title": "Create a Vault",
                 "path": "guides/create-vault",
                 "icon": "folder-plus"
               },
               {
-                "title": "Сгенерировать адреса",
+                "title": "Generate addresses",
                 "path": "guides/generate-addresses",
                 "icon": "copy-plus"
               },
               {
-                "title": "Отправить перевод",
+                "title": "Send a transfer",
                 "path": "guides/send-transfer",
                 "icon": "send"
               },
               {
-                "title": "Пред-проверить перевод",
+                "title": "Evaluate a transfer",
                 "path": "guides/evaluate-transfer",
                 "icon": "search-check"
               },
               {
-                "title": "Настроить политику",
+                "title": "Configure a policy",
                 "path": "guides/configure-policies",
                 "icon": "sliders-horizontal",
                 "badge": "TODO"
               },
               {
-                "title": "Обработать поступление",
+                "title": "Handle a deposit",
                 "path": "guides/handle-deposit",
                 "icon": "arrow-down-to-line"
               },
               {
-                "title": "Пригласить команду",
+                "title": "Invite your team",
                 "path": "guides/invite-team",
                 "icon": "user-plus"
               },
               {
-                "title": "Выдать и отозвать доступ",
+                "title": "Share and revoke access",
                 "path": "guides/share-access",
                 "icon": "share-2"
               },
               {
-                "title": "Отчёты и снапшоты",
+                "title": "Reports and snapshots",
                 "path": "guides/reports-snapshots",
                 "icon": "chart-column"
               },
               {
-                "title": "Пополнить Gas Station",
+                "title": "Fund Gas Station",
                 "path": "guides/fund-gas-station",
                 "icon": "fuel",
                 "badge": "TODO"
@@ -145,56 +145,56 @@
             ]
           },
           {
-            "group": "Платформа",
+            "group": "Platform",
             "icon": "plug",
             "pages": [
               {
-                "title": "Обзор",
+                "title": "Overview",
                 "path": "platform/overview",
                 "icon": "compass"
               },
               {
-                "title": "Окружения и базовые URL",
+                "title": "Environments and base URLs",
                 "path": "platform/environments",
                 "icon": "server"
               },
               {
-                "title": "Аутентификация детально",
+                "title": "Authentication in depth",
                 "path": "platform/authentication",
                 "icon": "key-round"
               },
               {
-                "title": "Суммы и точность",
+                "title": "Amounts and precision",
                 "path": "platform/amounts-precision",
                 "icon": "calculator"
               },
               {
-                "title": "Пагинация и фильтры",
+                "title": "Pagination and filters",
                 "path": "platform/pagination-filtering",
                 "icon": "chevrons-right"
               },
               {
-                "title": "Идемпотентность",
+                "title": "Idempotency",
                 "path": "platform/idempotency",
                 "icon": "repeat"
               },
               {
-                "title": "Модель ошибок",
+                "title": "Error model",
                 "path": "platform/errors",
                 "icon": "alert-circle"
               },
               {
-                "title": "Вебхуки",
+                "title": "Webhooks",
                 "path": "platform/webhooks",
                 "icon": "webhook"
               },
               {
-                "title": "Модель доступа",
+                "title": "Access model",
                 "path": "platform/access-model",
                 "icon": "shield"
               },
               {
-                "title": "Активы и сети",
+                "title": "Assets and networks",
                 "path": "platform/assets-networks",
                 "icon": "coins"
               }
