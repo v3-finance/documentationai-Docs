@@ -47,7 +47,7 @@ info:
 
     - Whitelist destination matcher is a stub.
 
-    - Webhook has no signature (HMAC is TODO).
+    - Webhook has no signature.
 
     - D1 has no transactions: non-monetary multi-write operations use cleanup-on-error; monetary paths are atomic (ledger batch).
   version: 1.0.0
