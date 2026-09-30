@@ -46,12 +46,6 @@ Pass the session token in the `Authorization` header. This is how server integra
 
 Signing in to the web console sets an httpOnly session cookie. The browser sends it automatically, so you never handle it manually, and by design it isn't accessible from JavaScript. For server-to-server integrations, use a Bearer token rather than a cookie.
 
-## Getting a token
-
-<Callout kind="info" collapsed="false">
-  \[TODO: describe how access tokens are issued for server integrations. The mechanism is still being finalized. Fill this in once the issuance process is defined. Find this block by the TODO marker.]
-</Callout>
-
 ## Invite-only registration
 
 Self-registration is disabled: a hook blocks sign‑up without a valid invitation. A new member joins a Vault as follows:

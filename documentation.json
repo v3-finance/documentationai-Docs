@@ -111,12 +111,6 @@
                 "icon": "search-check"
               },
               {
-                "title": "Configure a policy",
-                "path": "guides/configure-policies",
-                "icon": "sliders-horizontal",
-                "badge": "TODO"
-              },
-              {
                 "title": "Handle a deposit",
                 "path": "guides/handle-deposit",
                 "icon": "arrow-down-to-line"
@@ -135,12 +129,6 @@
                 "title": "Reports and snapshots",
                 "path": "guides/reports-snapshots",
                 "icon": "chart-column"
-              },
-              {
-                "title": "Fund Gas Station",
-                "path": "guides/fund-gas-station",
-                "icon": "fuel",
-                "badge": "TODO"
               }
             ]
           },

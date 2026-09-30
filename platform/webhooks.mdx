@@ -48,7 +48,7 @@ KS -->|yes| CR["Credit + deposit record"]
 ## Signing and security
 
 - **In demo mode**, the webhook is accepted **without a signature or authentication**.
-- **In production**, **HMAC** verification is planned. \[TODO: describe the HMAC signing scheme and header once it's available.]
+- **In production**, **HMAC** verification is planned.
 
 Until signing is introduced, restrict the request source at the network level (the trusted Wallet Service source).
 
@@ -70,7 +70,7 @@ For the full flow, see the [Handle an incoming deposit](/guides/handle-deposit) 
 
 ## Outgoing webhooks
 
-The current API has only the **incoming** Wallet Service webhook. Outgoing webhooks (for example, low Gas Station balance notifications) aren't available in the API yet. \[TODO: describe outgoing webhooks once they're available.]
+The current API has only the **incoming** Wallet Service webhook. Outgoing webhooks (for example, low Gas Station balance notifications) aren't available in the API yet.
 
 <Expandable title="Glossary" default-open="false">
   - **Wallet Service**: an external service that monitors addresses and calls the webhook.
